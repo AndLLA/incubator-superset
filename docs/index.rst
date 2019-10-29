@@ -96,7 +96,7 @@ Features
 Databases
 ---------
 
-The following RDBMS are currently suppored:
+The following RDBMS are currently supported:
 
 - `Amazon Athena <https://aws.amazon.com/athena/>`_
 - `Amazon Redshift <https://aws.amazon.com/redshift/>`_
@@ -109,6 +109,7 @@ The following RDBMS are currently suppored:
 - `Apache Spark SQL <https://spark.apache.org/sql/>`_
 - `BigQuery <https://cloud.google.com/bigquery/>`_
 - `ClickHouse <https://clickhouse.yandex/>`_
+- `Elasticsearch <https://www.elastic.co/products/elasticsearch/>`_
 - `Exasol <https://www.exasol.com/>`_
 - `Google Sheets <https://www.google.com/sheets/about/>`_
 - `Greenplum <https://greenplum.org/>`_

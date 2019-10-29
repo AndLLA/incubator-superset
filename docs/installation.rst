@@ -377,6 +377,8 @@ Here's a list of some of the recommended packages.
 +------------------+---------------------------------------+-------------------------------------------------+
 | ClickHouse       | ``pip install sqlalchemy-clickhouse`` |                                                 |
 +------------------+---------------------------------------+-------------------------------------------------+
+| Elasticsearch    | ``pip install elasticsearch-dbapi``   | ``elasticsearch+http://``                               |
++------------------+---------------------------------------+-------------------------------------------------+
 | Exasol           | ``pip install sqlalchemy-exasol``     | ``exa+pyodbc://``                               |
 +------------------+---------------------------------------+-------------------------------------------------+
 | Google Sheets    | ``pip install gsheetsdb``             | ``gsheets://``                                  |
@@ -433,6 +435,38 @@ The connection string for BigQuery looks like this ::
     bigquery://{project_id}
 
 To be able to upload data, e.g. sample data, the python library `pandas_gbq` is required.
+
+Elasticsearch
+-------------
+
+The connection string for Elasticsearch looks like this ::
+
+    elasticsearch+http://{user}:{password}@{host}:9200/
+
+Using HTTPS ::
+
+    elasticsearch+https://{user}:{password}@{host}:9200/
+
+
+Elasticsearch as a default limit of 10000 rows, so you can increase this limit on your cluster
+or set Superset's row limit on config ::
+
+    ROW_LIMIT = 10000
+
+You can query multiple indices on SQLLab for example ::
+
+    select timestamp, agent from "logstash-*"
+
+But, to use visualizations for multiple indices you need to create an alias index on your cluster ::
+
+    POST /_aliases
+    {
+        "actions" : [
+            { "add" : { "index" : "logstash-**", "alias" : "logstash_all" } }
+        ]
+    }
+
+Then register your table with the ``alias`` name ``logstasg_all``
 
 Snowflake
 ---------
@@ -843,7 +877,7 @@ have the same configuration.
 
 * To start a Celery worker to leverage the configuration run: ::
 
-    celery worker --app=superset.tasks.celery_app:app --pool=prefork -Ofair -c 4
+    celery worker --app=superset.tasks.celery_app:app --pool=prefork -O fair -c 4
 
 * To start a job which schedules periodic background jobs, run ::
 
@@ -888,6 +922,9 @@ cache store when upgrading an existing environment.
   entire setup. If not, background jobs can get scheduled multiple times
   resulting in weird behaviors like duplicate delivery of reports,
   higher than expected load / traffic etc.
+  
+* SQL Lab will only run your queries asynchronously if you enable 
+  "Asynchronous Query Execution" in your database settings.
 
 
 Email Reports
@@ -1205,7 +1242,7 @@ Then we can add this two lines to ``superset_config.py``:
   CUSTOM_SECURITY_MANAGER = CustomSsoSecurityManager
 
 Feature Flags
----------------------------
+-------------
 
 Because of a wide variety of users, Superset has some features that are not enabled by default. For example, some users have stronger security restrictions, while some others may not. So Superset allow users to enable or disable some features by config. For feature owners, you can add optional functionalities in Superset, but will be only affected by a subset of users.
 
@@ -1230,3 +1267,16 @@ Here is a list of flags and descriptions:
 * PRESTO_EXPAND_DATA
 
   * When this feature is enabled, nested types in Presto will be expanded into extra columns and/or arrays. This is experimental, and doesn't work with all nested types.
+
+
+SIP-15
+------
+
+`SIP-15 <https://github.com/apache/incubator-superset/issues/6360>`_ aims to ensure that time intervals are handled in a consistent and transparent manner for both the Druid and SQLAlchemy connectors.
+
+Prior to SIP-15 SQLAlchemy used inclusive endpoints however these may behave like exclusive depending on the time column (refer to the SIP for details) and thus the endpoint behavior could be unknown. To aid with transparency the current endpoint behavior is explicitly called out in the chart time range (post SIP-15 this will be [start, end) for all connectors and databases). One can override the defaults on a per database level via the ``extra``
+parameter ::
+
+    {
+        "time_range_endpoints": ["inclusive", "inclusive"]
+    }
