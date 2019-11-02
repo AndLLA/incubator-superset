@@ -14,30 +14,19 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# pylint: disable=C,R,W
-from flask_appbuilder.models.sqla.interface import SQLAInterface
-from flask_babel import gettext as __
-
-import superset.models.core as models
-from superset import app, appbuilder
-from superset.views.base import SupersetModelView
-
-from . import LogMixin
+from superset.db_engine_specs.impala import ImpalaEngineSpec
+from tests.db_engine_specs.base_tests import DbEngineSpecTestCase
 
 
-class LogModelView(LogMixin, SupersetModelView):
-    datamodel = SQLAInterface(models.Log)
+class ImpalaTestCase(DbEngineSpecTestCase):
+    def test_convert_dttm(self):
+        dttm = self.get_dttm()
 
+        self.assertEqual(
+            ImpalaEngineSpec.convert_dttm("DATE", dttm), "CAST('2019-01-02' AS DATE)"
+        )
 
-if (
-    not app.config["FAB_ADD_SECURITY_VIEWS"] is False
-    or app.config["SUPERSET_LOG_VIEW"] is False
-):
-    appbuilder.add_view(
-        LogModelView,
-        "Action Log",
-        label=__("Action Log"),
-        category="Security",
-        category_label=__("Security"),
-        icon="fa-list-ol",
-    )
+        self.assertEqual(
+            ImpalaEngineSpec.convert_dttm("TIMESTAMP", dttm),
+            "CAST('2019-01-02T03:04:05.678900' AS TIMESTAMP)",
+        )

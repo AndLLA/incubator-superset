@@ -434,7 +434,39 @@ The connection string for BigQuery looks like this ::
 
     bigquery://{project_id}
 
+Additionally, you will need to configure authentication via a
+Service Account. Create your Service Account via the Google
+Cloud Platform control panel, provide it access to the appropriate
+BigQuery datasets, and download the JSON configuration file
+for the service account. In Superset, Add a JSON blob to
+the "Secure Extra" field in the database configuration page
+with the following format ::
+
+    {
+        "credentials_info": <contents of credentials JSON file>
+    }
+
+The resulting file should have this structure ::
+
+    {
+        "credentials_info": {
+            "type": "service_account",
+            "project_id": "...",
+            "private_key_id": "...",
+            "private_key": "...",
+            "client_email": "...",
+            "client_id": "...",
+            "auth_uri": "...",
+            "token_uri": "...",
+            "auth_provider_x509_cert_url": "...",
+            "client_x509_cert_url": "...",
+        }
+    }
+
+You should then be able to connect to your BigQuery datasets.
+
 To be able to upload data, e.g. sample data, the python library `pandas_gbq` is required.
+
 
 Elasticsearch
 -------------
@@ -922,8 +954,8 @@ cache store when upgrading an existing environment.
   entire setup. If not, background jobs can get scheduled multiple times
   resulting in weird behaviors like duplicate delivery of reports,
   higher than expected load / traffic etc.
-  
-* SQL Lab will only run your queries asynchronously if you enable 
+
+* SQL Lab will only run your queries asynchronously if you enable
   "Asynchronous Query Execution" in your database settings.
 
 
@@ -931,24 +963,60 @@ Email Reports
 -------------
 Email reports allow users to schedule email reports for
 
-* slice and dashboard visualization (Attachment or inline)
-* slice data (CSV attachment on inline table)
+* chart and dashboard visualization (Attachment or inline)
+* chart data (CSV attachment on inline table)
+
+**Setup**
+
+Make sure you enable email reports in your configuration file
+
+.. code-block:: python
+
+    ENABLE_SCHEDULED_EMAIL_REPORTS = True
+
+Now you will find two new items in the navigation bar that allow you to schedule email
+reports
+
+* Manage -> Dashboard Emails
+* Manage -> Chart Email Schedules
 
 Schedules are defined in crontab format and each schedule
 can have a list of recipients (all of them can receive a single mail,
 or separate mails). For audit purposes, all outgoing mails can have a
 mandatory bcc.
 
-**Requirements**
+In order get picked up you need to configure a celery worker and a celery beat
+(see section above "Celery Tasks"). Your celery configuration also
+needs an entry ``email_reports.schedule_hourly`` for ``CELERYBEAT_SCHEDULE``.
 
-* A selenium compatible driver & headless browser
+To send emails you need to configure SMTP settings in your configuration file. e.g.
+
+.. code-block:: python
+
+    EMAIL_NOTIFICATIONS = True
+
+    SMTP_HOST = "email-smtp.eu-west-1.amazonaws.com"
+    SMTP_STARTTLS = True
+    SMTP_SSL = False
+    SMTP_USER = "smtp_username"
+    SMTP_PORT = 25
+    SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
+    SMTP_MAIL_FROM = "insights@komoot.com"
+
+
+To render dashboards you need to install a local browser on your superset instance
 
   * `geckodriver <https://github.com/mozilla/geckodriver>`_ and Firefox is preferred
   * `chromedriver <http://chromedriver.chromium.org/>`_ is a good option too
-* Run `celery worker` and `celery beat` as follows ::
 
-    celery worker --app=superset.tasks.celery_app:app --pool=prefork -Ofair -c 4
-    celery beat --app=superset.tasks.celery_app:app
+You need to adjust the ``EMAIL_REPORTS_WEBDRIVER`` accordingly in your configuration.
+
+You also need to specify on behalf of which username to render the dashboards. In general
+dashboards and charts are not accessible to unauthorized requests, that is why the
+worker needs to take over credentials of an existing user to take a snapshot. ::
+
+    EMAIL_REPORTS_USER = 'username_with_permission_to_access_dashboards'
+
 
 **Important notes**
 
@@ -962,6 +1030,10 @@ mandatory bcc.
 
 * It is recommended to run separate workers for ``sql_lab`` and
   ``email_reports`` tasks. Can be done by using ``queue`` field in ``CELERY_ANNOTATIONS``
+
+* Adjust ``WEBDRIVER_BASEURL`` in your config if celery workers can't access superset via its
+  default value ``http://0.0.0.0:8080/`` (notice the port number 8080, many other setups use
+  port 8088).
 
 SQL Lab
 -------
@@ -1274,7 +1346,17 @@ SIP-15
 
 `SIP-15 <https://github.com/apache/incubator-superset/issues/6360>`_ aims to ensure that time intervals are handled in a consistent and transparent manner for both the Druid and SQLAlchemy connectors.
 
-Prior to SIP-15 SQLAlchemy used inclusive endpoints however these may behave like exclusive depending on the time column (refer to the SIP for details) and thus the endpoint behavior could be unknown. To aid with transparency the current endpoint behavior is explicitly called out in the chart time range (post SIP-15 this will be [start, end) for all connectors and databases). One can override the defaults on a per database level via the ``extra``
+Prior to SIP-15 SQLAlchemy used inclusive endpoints however these may behave like exclusive for string columns (due to lexicographical ordering) if no formatting was defined and the column formatting did not conform to an ISO 8601 date-time (refer to the SIP for details).
+
+To remedy this rather than having to define the date/time format for every non-IS0 8601 date-time column, once can define a default column mapping on a per database level via the ``extra`` parameter ::
+
+    {
+        "python_date_format_by_column_name": {
+            "ds": "%Y-%m-%d"
+        }
+    }
+
+Additionally to aid with transparency the current endpoint behavior is explicitly called out in the chart time range (post SIP-15 this will be [start, end) for all connectors and databases). One can override the defaults on a per database level via the ``extra``
 parameter ::
 
     {

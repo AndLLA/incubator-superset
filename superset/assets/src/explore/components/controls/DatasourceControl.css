@@ -16,16 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-.Datasource .tab-content {
-    height: 600px;
-    overflow: auto;
+#datasource_menu {
+    border-radius: 2px;
+    padding-left: 8px;
+    padding-right: 8px;
 }
 
-.Datasource .change-warning {
-    margin: 16px 10px 0;
-    color: #FE4A49;
+#datasource_menu .caret {
+    position: relative;
+    padding-right: 8px;
+    margin-left: 4px;
+    color: #fff;
+    top: -8px;
 }
 
-.Datasource .change-warning .bold {
-    font-weight: bold;
+#datasource_menu + ul {
+    margin-top: 26px;
 }
