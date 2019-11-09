@@ -2406,6 +2406,15 @@ class Superset(BaseSupersetView):
         except Exception as e:
             return json_error_response(str(e))
 
+        spec = mydb.db_engine_spec
+        query_cost_formatters = get_feature_flags().get(
+            "QUERY_COST_FORMATTERS_BY_ENGINE", {}
+        )
+        query_cost_formatter = query_cost_formatters.get(
+            spec.engine, spec.query_cost_formatter
+        )
+        cost = query_cost_formatter(cost)
+
         return json_success(json.dumps(cost))
 
     @expose("/theme/")
@@ -2953,7 +2962,6 @@ class Superset(BaseSupersetView):
         return self.render_template(
             "superset/basic.html",
             entry="welcome",
-            title="Superset",
             bootstrap_data=json.dumps(payload, default=utils.json_iso_dttm_ser),
         )
 
@@ -3041,7 +3049,7 @@ class Superset(BaseSupersetView):
         except Exception:
             return json_error_response(
                 "Failed to fetch schemas allowed for csv upload in this database! "
-                "Please contact Superset Admin!",
+                "Please contact your Superset Admin!",
                 stacktrace=utils.get_stacktrace(),
             )
 

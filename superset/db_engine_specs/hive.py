@@ -98,7 +98,7 @@ class HiveEngineSpec(PrestoEngineSpec):
             return []
 
     @classmethod
-    def create_table_from_csv(cls, form, table):  # pylint: disable=too-many-locals
+    def create_table_from_csv(cls, form) -> None:  # pylint: disable=too-many-locals
         """Uploads a csv file and creates a superset datasource in Hive."""
 
         def convert_to_hive_type(col_type):
@@ -376,7 +376,9 @@ class HiveEngineSpec(PrestoEngineSpec):
         )
 
     @classmethod
-    def modify_url_for_impersonation(cls, url, impersonate_user: bool, username: str):
+    def modify_url_for_impersonation(
+        cls, url, impersonate_user: bool, username: Optional[str]
+    ):
         """
         Modify the SQL Alchemy URL object with the user to impersonate if applicable.
         :param url: SQLAlchemy URL object
@@ -389,7 +391,7 @@ class HiveEngineSpec(PrestoEngineSpec):
 
     @classmethod
     def get_configuration_for_impersonation(
-        cls, uri: str, impersonate_user: bool, username: str
+        cls, uri: str, impersonate_user: bool, username: Optional[str]
     ) -> Dict[str, str]:
         """
         Return a configuration dictionary that can be merged with other configs
