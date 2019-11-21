@@ -16,6 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-.filter-edit {
-  cursor: pointer;
+@import "../../stylesheets/less/variables.less";
+
+.filter-badge {
+  width: 20px;
+  height: 20px;
+  background-color: @gray-light;
+  border-radius: 2px;
+  z-index: 10;
+  path {
+    fill: @lightest;
+  }
+}
+.filter-badge .color-bar.badge-group,
+.filter-badge.badge-group {
+  background-color: @gray-dark;
 }

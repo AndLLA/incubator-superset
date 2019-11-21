@@ -16,17 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-.CRUD .text-right {
-  text-align: right;
-}
-.CRUD .empty-collection {
-  padding: 10px;
-}
-.CRUD .control-label {
-  font-weight: bold;
-  font-size: 16px;
+@import "../../../../stylesheets/less/variables.less";
+
+#datasource_menu {
+    border-radius: 2px;
+    padding-left: 8px;
+    padding-right: 8px;
 }
 
-.CRUD .tiny-cell {
-  width: 5px;
+#datasource_menu .caret {
+    position: relative;
+    padding-right: 8px;
+    margin-left: 4px;
+    color: @lightest;
+    top: -8px;
+}
+
+#datasource_menu + ul {
+    margin-top: 26px;
 }
