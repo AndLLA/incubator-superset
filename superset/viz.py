@@ -1298,7 +1298,7 @@ class MultiLineViz(NVD3Viz):
     def get_data(self, df):
         fd = self.form_data
         # Late imports to avoid circular import issues
-        from superset.models.core import Slice
+        from superset.models.slice import Slice
         from superset import db
 
         slice_ids1 = fd.get("line_charts")
@@ -2106,7 +2106,7 @@ class DeckGLMultiLayer(BaseViz):
     def get_data(self, df):
         fd = self.form_data
         # Late imports to avoid circular import issues
-        from superset.models.core import Slice
+        from superset.models.slice import Slice
         from superset import db
 
         slice_ids = fd.get("deck_slices")
