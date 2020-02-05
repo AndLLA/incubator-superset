@@ -302,6 +302,7 @@ GET_FEATURE_FLAGS_FUNC = None
 # ---------------------------------------------------
 # The file upload folder, when using models with files
 UPLOAD_FOLDER = BASE_DIR + "/app/static/uploads/"
+UPLOAD_CHUNK_SIZE = 4096
 
 # The image upload folder, when using models with images
 IMG_UPLOAD_FOLDER = BASE_DIR + "/app/static/uploads/"
@@ -699,6 +700,10 @@ DOCUMENTATION_URL = None
 DOCUMENTATION_TEXT = "Documentation"
 DOCUMENTATION_ICON = None  # Recommended size: 16x16
 
+# Enables the replacement react views for all the FAB views: list, edit, show.
+# This is a work in progress so not all features available in FAB have been implemented
+ENABLE_REACT_CRUD_VIEWS = False
+
 # What is the Last N days relative in the time selector to:
 # 'today' means it is midnight (00:00:00) in the local timezone
 # 'now' means it is relative to the query issue time
@@ -745,7 +750,7 @@ SQLALCHEMY_EXAMPLES_URI = None
 #
 # Note if no end date for the grace period is specified then the grace period is
 # indefinite.
-SIP_15_ENABLED = False
+SIP_15_ENABLED = True
 SIP_15_GRACE_PERIOD_END: Optional[date] = None  # exclusive
 SIP_15_DEFAULT_TIME_RANGE_ENDPOINTS = ["unknown", "inclusive"]
 SIP_15_TOAST_MESSAGE = (

@@ -32,7 +32,7 @@ from collections import defaultdict, OrderedDict
 from datetime import datetime, timedelta
 from functools import reduce
 from itertools import product
-from typing import Any, Dict, List, Optional, Set, Tuple, TYPE_CHECKING, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
 import geohash
 import numpy as np
@@ -50,6 +50,7 @@ from superset import app, cache, get_css_manifest_files
 from superset.constants import NULL_STRING
 from superset.exceptions import NullValueException, SpatialException
 from superset.models.helpers import QueryResult
+from superset.typing import VizData
 from superset.utils import core as utils
 from superset.utils.core import (
     DTTM_ALIAS,
@@ -76,8 +77,6 @@ METRIC_KEYS = [
     "y",
     "size",
 ]
-
-VizData = Optional[Union[List[Any], Dict[Any, Any]]]
 
 
 class BaseViz:
@@ -404,7 +403,7 @@ class BaseViz:
         if cache_key and cache and not self.force:
             cache_value = cache.get(cache_key)
             if cache_value:
-                stats_logger.incr("loaded_from_cache")
+                stats_logger.incr("loading_from_cache")
                 try:
                     cache_value = pkl.loads(cache_value)
                     df = cache_value["df"]
@@ -413,6 +412,7 @@ class BaseViz:
                     self._any_cache_key = cache_key
                     self.status = utils.QueryStatus.SUCCESS
                     is_loaded = True
+                    stats_logger.incr("loaded_from_cache")
                 except Exception as e:
                     logging.exception(e)
                     logging.error(
@@ -677,7 +677,7 @@ class PivotTableViz(BaseViz):
             )
         if not metrics:
             raise Exception(_("Please choose at least one metric"))
-        if any(v in groupby for v in columns) or any(v in columns for v in groupby):
+        if set(groupby) & set(columns):
             raise Exception(_("Group By' and 'Columns' can't overlap"))
         return d
 
@@ -695,15 +695,18 @@ class PivotTableViz(BaseViz):
         columns = self.form_data.get("columns")
         if self.form_data.get("transpose_pivot"):
             groupby, columns = columns, groupby
+        metrics = [utils.get_metric_name(m) for m in self.form_data["metrics"]]
         df = df.pivot_table(
             index=groupby,
             columns=columns,
-            values=[
-                utils.get_metric_name(m) for m in self.form_data.get("metrics", [])
-            ],
+            values=metrics,
             aggfunc=aggfunc,
             margins=self.form_data.get("pivot_margins"),
         )
+
+        # Re-order the columns adhering to the metric ordering.
+        df = df[metrics]
+
         # Display metrics side by side with each column
         if self.form_data.get("combine_metric"):
             df = df.stack(0).unstack()

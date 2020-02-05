@@ -16,40 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-@import '../../../../stylesheets/less/variables.less';
+import React from 'react';
 
-.new-component {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: center;
-  padding: 16px;
-  background: @lightest;
-  cursor: move;
+const IndeterminateCheckbox = React.forwardRef(
+  ({ indeterminate, ...rest }, ref) => {
+    const defaultRef = React.useRef();
+    const resolvedRef = ref || defaultRef;
 
-  &:not(.static):hover {
-    background: @gray-bg;
-  }
-}
+    React.useEffect(() => {
+      resolvedRef.current.indeterminate = indeterminate;
+    }, [resolvedRef, indeterminate]);
 
-.new-component-placeholder {
-  position: relative;
-  background: @gray-bg;
-  width: 40px;
-  height: 40px;
-  margin-right: 16px;
-  border: 1px solid @lightest;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: @gray;
-  font-size: @font-size-xxl;
+    return (
+      <>
+        <input type="checkbox" ref={resolvedRef} {...rest} />
+      </>
+    );
+  },
+);
 
-  &.fa-window-restore {
-    font-size: @font-size-l;
-  }
-
-  &.fa-area-chart {
-    font-size: @font-size-xl;
-  }
-}
+export default IndeterminateCheckbox;
