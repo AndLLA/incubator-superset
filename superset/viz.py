@@ -383,10 +383,7 @@ class BaseViz:
 
         df = payload.get("df")
         if self.status != utils.QueryStatus.FAILED:
-            if df is not None and df.empty:
-                payload["error"] = "No data"
-            else:
-                payload["data"] = self.get_data(df)
+            payload["data"] = self.get_data(df)
         if "df" in payload:
             del payload["df"]
         return payload
@@ -651,6 +648,9 @@ class TimeTableViz(BaseViz):
         return d
 
     def get_data(self, df: pd.DataFrame) -> VizData:
+        if df.empty:
+            return None
+
         fd = self.form_data
         columns = None
         values = self.metric_labels
@@ -704,6 +704,9 @@ class PivotTableViz(BaseViz):
         return d
 
     def get_data(self, df: pd.DataFrame) -> VizData:
+        if df.empty:
+            return None
+
         if self.form_data.get("granularity") == "all" and DTTM_ALIAS in df:
             del df[DTTM_ALIAS]
 
@@ -813,6 +816,9 @@ class TreemapViz(BaseViz):
         return result
 
     def get_data(self, df: pd.DataFrame) -> VizData:
+        if df.empty:
+            return None
+
         df = df.set_index(self.form_data.get("groupby"))
         chart_data = [
             {"name": metric, "children": self._nest(metric, df)}
@@ -923,6 +929,9 @@ class BoxPlotViz(NVD3Viz):
         return chart_data
 
     def get_data(self, df: pd.DataFrame) -> VizData:
+        if df.empty:
+            return None
+
         form_data = self.form_data
 
         # conform to NVD3 names
@@ -1010,6 +1019,9 @@ class BubbleViz(NVD3Viz):
         return d
 
     def get_data(self, df: pd.DataFrame) -> VizData:
+        if df.empty:
+            return None
+
         df["x"] = df[[utils.get_metric_name(self.x_metric)]]
         df["y"] = df[[utils.get_metric_name(self.y_metric)]]
         df["size"] = df[[utils.get_metric_name(self.z_metric)]]
@@ -1178,7 +1190,7 @@ class NVD3TimeSeriesViz(NVD3Viz):
             chart_data.append(d)
         return chart_data
 
-    def process_data(self, df, aggregate=False):
+    def process_data(self, df: pd.DataFrame, aggregate: bool = False) -> VizData:
         fd = self.form_data
         if fd.get("granularity") == "all":
             raise Exception(_("Pick a time granularity for your time series"))
@@ -1405,6 +1417,9 @@ class NVD3DualLineViz(NVD3Viz):
         return chart_data
 
     def get_data(self, df: pd.DataFrame) -> VizData:
+        if df.empty:
+            return None
+
         fd = self.form_data
 
         if self.form_data.get("granularity") == "all":
@@ -1441,6 +1456,9 @@ class NVD3TimePivotViz(NVD3TimeSeriesViz):
         return d
 
     def get_data(self, df: pd.DataFrame) -> VizData:
+        if df.empty:
+            return None
+
         fd = self.form_data
         df = self.process_data(df)
         freq = to_offset(fd.get("freq"))
@@ -1499,6 +1517,8 @@ class DistributionPieViz(NVD3Viz):
     is_timeseries = False
 
     def get_data(self, df: pd.DataFrame) -> VizData:
+        if df.empty:
+            return None
         metric = self.metric_labels[0]
         df = df.pivot_table(index=self.groupby, values=[metric])
         df.sort_values(by=metric, ascending=False, inplace=True)
@@ -1540,6 +1560,9 @@ class HistogramViz(BaseViz):
 
     def get_data(self, df: pd.DataFrame) -> VizData:
         """Returns the chart data"""
+        if df.empty:
+            return None
+
         chart_data = []
         if len(self.groupby) > 0:
             groups = df.groupby(self.groupby)
@@ -1580,6 +1603,9 @@ class DistributionBarViz(DistributionPieViz):
         return d
 
     def get_data(self, df: pd.DataFrame) -> VizData:
+        if df.empty:
+            return None
+
         fd = self.form_data
         metrics = self.metric_labels
         columns = fd.get("columns") or []
@@ -1746,6 +1772,9 @@ class ChordViz(BaseViz):
         return qry
 
     def get_data(self, df: pd.DataFrame) -> VizData:
+        if df.empty:
+            return None
+
         df.columns = ["source", "target", "value"]
 
         # Preparing a symetrical matrix like d3.chords calls for
@@ -1909,7 +1938,7 @@ class IFrameViz(BaseViz):
         return pd.DataFrame()
 
     def get_data(self, df: pd.DataFrame) -> VizData:
-        return {}
+        return {"iframe": True}
 
 
 class ParallelCoordinatesViz(BaseViz):
@@ -1958,6 +1987,9 @@ class HeatmapViz(BaseViz):
         return d
 
     def get_data(self, df: pd.DataFrame) -> VizData:
+        if df.empty:
+            return None
+
         fd = self.form_data
         x = fd.get("all_columns_x")
         y = fd.get("all_columns_y")
@@ -2067,6 +2099,7 @@ class MapboxViz(BaseViz):
     def get_data(self, df: pd.DataFrame) -> VizData:
         if df.empty:
             return None
+
         fd = self.form_data
         label_col = fd.get("mapbox_label")
         has_custom_metric = label_col is not None and len(label_col) > 0
@@ -2548,6 +2581,9 @@ class DeckArc(BaseDeckGLViz):
         }
 
     def get_data(self, df: pd.DataFrame) -> VizData:
+        if df.empty:
+            return None
+
         d = super().get_data(df)
 
         return {
@@ -2609,6 +2645,10 @@ class PairedTTestViz(BaseViz):
             ], ...
         }
         """
+
+        if df.empty:
+            return None
+
         fd = self.form_data
         groups = fd.get("groupby")
         metrics = self.metric_labels
@@ -2649,6 +2689,9 @@ class RoseViz(NVD3TimeSeriesViz):
     is_timeseries = True
 
     def get_data(self, df: pd.DataFrame) -> VizData:
+        if df.empty:
+            return None
+
         data = super().get_data(df)
         result: Dict = {}
         for datum in data:  # type: ignore
