@@ -16,36 +16,33 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-/* Reusable validator functions used in controls definitions
- *
- * validator functions receive the v and the configuration of the control
- * as arguments and return something that evals to false if v is valid,
- * and an error message if not valid.
- * */
-import { t } from '@superset-ui/translation';
+import styled from '@emotion/styled';
+// @ts-ignore
+import Select from 'react-select';
 
-export function numeric(v) {
-  if (v && isNaN(v)) {
-    return t('is expected to be a number');
+export default styled(Select)`
+  display: inline;
+  &.is-focused:not(.is-open) > .Select-control {
+    border: none;
+    box-shadow: none;
   }
-  return false;
-}
+  .Select-control {
+    display: inline-table;
+    border: none;
+    width: 100px;
+    &:focus,
+    &:hover {
+      border: none;
+      box-shadow: none;
+    }
 
-export function integer(v) {
-  if (v && (isNaN(v) || parseInt(v, 10) !== +v)) {
-    return t('is expected to be an integer');
+    .Select-arrow-zone {
+      padding-left: 10px;
+    }
   }
-  return false;
-}
-
-export function nonEmpty(v) {
-  if (
-    v === null ||
-    v === undefined ||
-    v === '' ||
-    (Array.isArray(v) && v.length === 0)
-  ) {
-    return t('cannot be empty');
+  .Select-menu-outer {
+    margin-top: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-left-radius: 0;
   }
-  return false;
-}
+`;
