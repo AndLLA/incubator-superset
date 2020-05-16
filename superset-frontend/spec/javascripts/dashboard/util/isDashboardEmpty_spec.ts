@@ -16,30 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { t } from '@superset-ui/translation';
+import isDashboardEmpty from 'src/dashboard/util/isDashboardEmpty';
+import getEmptyLayout from 'src/dashboard/util/getEmptyLayout';
 
-export default {
-  controlPanelSections: [
-    {
-      label: t('Query'),
-      expanded: true,
-      controlSetRows: [
-        ['groupby'],
-        ['metric'],
-        ['adhoc_filters'],
-        ['row_limit'],
-      ],
+describe('isDashboardEmpty', () => {
+  const emptyLayout: object = getEmptyLayout();
+  const testLayout: object = {
+    ...emptyLayout,
+    'MARKDOWN-IhTGLhyiTd': {
+      children: [],
+      id: 'MARKDOWN-IhTGLhyiTd',
+      meta: { code: 'test me', height: 50, width: 4 },
+      parents: ['ROOT_ID', 'GRID_ID', 'ROW-uPjcKNYJQy'],
+      type: 'MARKDOWN',
     },
-    {
-      label: t('Chart Options'),
-      expanded: true,
-      controlSetRows: [['color_scheme', 'label_colors']],
-    },
-  ],
-  controlOverrides: {
-    groupby: {
-      label: t('Source / Target'),
-      description: t('Choose a source and a target'),
-    },
-  },
-};
+  };
+
+  it('should return true for empty dashboard', () => {
+    expect(isDashboardEmpty(emptyLayout)).toBe(true);
+  });
+
+  it('should return false for non-empty dashboard', () => {
+    expect(isDashboardEmpty(testLayout)).toBe(false);
+  });
+});
