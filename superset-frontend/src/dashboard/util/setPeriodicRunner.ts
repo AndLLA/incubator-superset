@@ -16,30 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React from 'react';
-import PropTypes from 'prop-types';
-
-import InfoTooltipWithTrigger from './InfoTooltipWithTrigger';
-
-const propTypes = {
-  option: PropTypes.object.isRequired,
+const stopPeriodicRender = (refreshTimer?: number) => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+  }
 };
 
-// This component provides a general tooltip for options
-// in a SelectControl
-export default function OptionDescription({ option }) {
-  return (
-    <span>
-      <span className="m-r-5 option-label">{option.label}</span>
-      {option.description && (
-        <InfoTooltipWithTrigger
-          className="m-r-5 text-muted"
-          icon="question-circle-o"
-          tooltip={option.description}
-          label={`descr-${option.label}`}
-        />
-      )}
-    </span>
-  );
+interface SetPeriodicRunnerProps {
+  interval?: number;
+  periodicRender: TimerHandler;
+  refreshTimer?: number;
 }
-OptionDescription.propTypes = propTypes;
+
+export default function setPeriodicRunner({
+  interval = 0,
+  periodicRender,
+  refreshTimer,
+}: SetPeriodicRunnerProps) {
+  stopPeriodicRender(refreshTimer);
+
+  if (interval > 0) {
+    return setInterval(periodicRender, interval);
+  }
+  return 0;
+}
