@@ -128,6 +128,7 @@ class DatabaseRestApi(DatabaseMixin, BaseSupersetModelRestApi):
         "database_name",
         "expose_in_sqllab",
         "allow_ctas",
+        "allow_cvas",
         "force_ctas_schema",
         "allow_run_async",
         "allow_dml",
@@ -135,6 +136,7 @@ class DatabaseRestApi(DatabaseMixin, BaseSupersetModelRestApi):
         "allow_csv_upload",
         "allows_subquery",
         "allows_cost_estimate",
+        "allows_virtual_table_explore",
         "backend",
         "function_names",
     ]

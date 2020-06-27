@@ -43,11 +43,13 @@ class DatabaseApiTests(SupersetTestCase):
         expected_columns = [
             "allow_csv_upload",
             "allow_ctas",
+            "allow_cvas",
             "allow_dml",
             "allow_multi_schema_metadata_fetch",
             "allow_run_async",
             "allows_cost_estimate",
             "allows_subquery",
+            "allows_virtual_table_explore",
             "backend",
             "database_name",
             "expose_in_sqllab",

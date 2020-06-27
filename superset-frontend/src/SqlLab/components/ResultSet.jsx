@@ -30,6 +30,7 @@ import FilterableTable from '../../components/FilterableTable/FilterableTable';
 import QueryStateLabel from './QueryStateLabel';
 import CopyToClipboard from '../../components/CopyToClipboard';
 import { prepareCopyToClipboardTabularData } from '../../utils/common';
+import { CtasEnum } from '../actions/sqlLab';
 
 const propTypes = {
   actions: PropTypes.object,
@@ -144,13 +145,15 @@ export default class ResultSet extends React.PureComponent {
       return (
         <div className="ResultSetControls">
           <div className="ResultSetButtons">
-            {this.props.visualize && (
-              <ExploreResultsButton
-                query={this.props.query}
-                database={this.props.database}
-                actions={this.props.actions}
-              />
-            )}
+            {this.props.visualize &&
+              this.props.database &&
+              this.props.database.allows_virtual_table_explore && (
+                <ExploreResultsButton
+                  query={this.props.query}
+                  database={this.props.database}
+                  actions={this.props.actions}
+                />
+              )}
             {this.props.csv && (
               <Button
                 bsSize="small"
@@ -219,10 +222,14 @@ export default class ResultSet extends React.PureComponent {
         tmpTable = query.results.query.tempTable;
         tmpSchema = query.results.query.tempSchema;
       }
+      let object = 'Table';
+      if (query.ctas_method === CtasEnum.VIEW) {
+        object = 'View';
+      }
       return (
         <div>
           <Alert bsStyle="info">
-            {t('Table')} [
+            {t(object)} [
             <strong>
               {tmpSchema}.{tmpTable}
             </strong>
