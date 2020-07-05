@@ -67,10 +67,7 @@ from .base_tests import SupersetTestCase
 logger = logging.getLogger(__name__)
 
 
-class CoreTests(SupersetTestCase):
-    def __init__(self, *args, **kwargs):
-        super(CoreTests, self).__init__(*args, **kwargs)
-
+class TestCore(SupersetTestCase):
     def setUp(self):
         db.session.query(Query).delete()
         db.session.query(DatasourceAccessRequest).delete()
@@ -137,7 +134,7 @@ class CoreTests(SupersetTestCase):
 
         qobj["inner_from_dttm"] = datetime.datetime(1901, 1, 1)
 
-        self.assertEquals(cache_key_with_groupby, viz.cache_key(qobj))
+        self.assertEqual(cache_key_with_groupby, viz.cache_key(qobj))
 
     def test_get_superset_tables_not_allowed(self):
         example_db = utils.get_example_database()
@@ -1306,6 +1303,20 @@ class CoreTests(SupersetTestCase):
         extra["allows_virtual_table_explore"] = "trash value"
         database.extra = json.dumps(extra)
         self.assertEqual(database.allows_virtual_table_explore, True)
+
+    def test_explore_database_id(self):
+        database = utils.get_example_database()
+        explore_database = utils.get_example_database()
+
+        # test that explore_database_id is the regular database
+        # id if none is set in the extra
+        self.assertEqual(database.explore_database_id, database.id)
+
+        # test that explore_database_id is correct if the extra is set
+        extra = database.get_extra()
+        extra["explore_database_id"] = explore_database.id
+        database.extra = json.dumps(extra)
+        self.assertEqual(database.explore_database_id, explore_database.id)
 
 
 if __name__ == "__main__":

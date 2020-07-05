@@ -109,6 +109,7 @@ setup(
         "wtforms-json",
     ],
     extras_require={
+        "athena": ["pyathena>=1.10.8,<1.11"],
         "bigquery": ["pybigquery>=0.4.10", "pandas_gbq>=0.10.0"],
         "cors": ["flask-cors>=2.0.0"],
         "gsheets": ["gsheetsdb>=0.1.9"],
@@ -122,6 +123,7 @@ setup(
         "dremio": ["sqlalchemy_dremio>=1.1.0"],
         "cockroachdb": ["cockroachdb==0.3.3"],
         "thumbnails": ["Pillow>=7.0.0, <8.0.0"],
+        "excel": ["xlrd>=1.2.0, <1.3"],
     },
     python_requires="~=3.6",
     author="Apache Software Foundation",
