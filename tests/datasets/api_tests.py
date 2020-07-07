@@ -371,6 +371,11 @@ class TestDatasetApi(SupersetTestCase):
         self.login(username="admin")
         rv = self.get_assert_metric(uri, "get")
         data = json.loads(rv.data.decode("utf-8"))
+
+        for column in data["result"]["columns"]:
+            column.pop("changed_on", None)
+            column.pop("created_on", None)
+
         data["result"]["columns"].append(new_column_data)
         rv = self.client.put(uri, json={"columns": data["result"]["columns"]})
 
@@ -404,6 +409,10 @@ class TestDatasetApi(SupersetTestCase):
         # Get current cols and alter one
         rv = self.get_assert_metric(uri, "get")
         resp_columns = json.loads(rv.data.decode("utf-8"))["result"]["columns"]
+        for column in resp_columns:
+            column.pop("changed_on", None)
+            column.pop("created_on", None)
+
         resp_columns[0]["groupby"] = False
         resp_columns[0]["filterable"] = False
         v = self.client.put(uri, json={"columns": resp_columns})
@@ -750,3 +759,17 @@ class TestDatasetApi(SupersetTestCase):
         self.login(username="gamma")
         rv = self.client.get(uri)
         self.assertEqual(rv.status_code, 401)
+
+    def test_get_dataset_related_objects(self):
+        """
+        Dataset API: Test get chart and dashboard count related to a dataset
+        :return:
+        """
+        self.login(username="admin")
+        table = self.get_birth_names_dataset()
+        uri = f"api/v1/dataset/{table.id}/related_objects"
+        rv = self.get_assert_metric(uri, "related_objects")
+        self.assertEqual(rv.status_code, 200)
+        response = json.loads(rv.data.decode("utf-8"))
+        self.assertEqual(response["charts"]["count"], 18)
+        self.assertEqual(response["dashboards"]["count"], 2)

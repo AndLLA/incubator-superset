@@ -21,6 +21,7 @@ import yaml
 from flask import g, request, Response
 from flask_appbuilder.api import expose, protect, rison, safe
 from flask_appbuilder.models.sqla.interface import SQLAInterface
+from marshmallow import ValidationError
 
 from superset.connectors.sqla.models import SqlaTable
 from superset.constants import RouteMethod
@@ -37,6 +38,7 @@ from superset.datasets.commands.exceptions import (
 )
 from superset.datasets.commands.refresh import RefreshDatasetCommand
 from superset.datasets.commands.update import UpdateDatasetCommand
+from superset.datasets.dao import DatasetDAO
 from superset.datasets.schemas import (
     DatasetPostSchema,
     DatasetPutSchema,
@@ -60,12 +62,12 @@ class DatasetRestApi(BaseSupersetModelRestApi):
 
     resource_name = "dataset"
     allow_browser_login = True
-
     class_permission_name = "TableModelView"
     include_route_methods = RouteMethod.REST_MODEL_VIEW_CRUD_SET | {
         RouteMethod.EXPORT,
         RouteMethod.RELATED,
         "refresh",
+        "related_objects",
     }
     list_columns = [
         "id",
@@ -177,13 +179,14 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         """
         if not request.is_json:
             return self.response_400(message="Request is not JSON")
-        item = self.add_model_schema.load(request.json)
-        # This validates custom Schema with custom validations
-        if item.errors:
-            return self.response_400(message=item.errors)
         try:
-            new_model = CreateDatasetCommand(g.user, item.data).run()
-            return self.response(201, id=new_model.id, result=item.data)
+            item = self.add_model_schema.load(request.json)
+        # This validates custom Schema with custom validations
+        except ValidationError as error:
+            return self.response_400(message=error.messages)
+        try:
+            new_model = CreateDatasetCommand(g.user, item).run()
+            return self.response(201, id=new_model.id, result=item)
         except DatasetInvalidError as ex:
             return self.response_422(message=ex.normalized_messages())
         except DatasetCreateFailedError as ex:
@@ -243,13 +246,14 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         """
         if not request.is_json:
             return self.response_400(message="Request is not JSON")
-        item = self.edit_model_schema.load(request.json)
-        # This validates custom Schema with custom validations
-        if item.errors:
-            return self.response_400(message=item.errors)
         try:
-            changed_model = UpdateDatasetCommand(g.user, pk, item.data).run()
-            return self.response(200, id=changed_model.id, result=item.data)
+            item = self.edit_model_schema.load(request.json)
+        # This validates custom Schema with custom validations
+        except ValidationError as error:
+            return self.response_400(message=error.messages)
+        try:
+            changed_model = UpdateDatasetCommand(g.user, pk, item).run()
+            return self.response(200, id=changed_model.id, result=item)
         except DatasetNotFoundError:
             return self.response_404()
         except DatasetForbiddenError:
@@ -412,3 +416,98 @@ class DatasetRestApi(BaseSupersetModelRestApi):
                 "Error refreshing dataset %s: %s", self.__class__.__name__, str(ex)
             )
             return self.response_422(message=str(ex))
+
+    @expose("/<pk>/related_objects", methods=["GET"])
+    @protect()
+    @safe
+    @statsd_metrics
+    def related_objects(self, pk: int) -> Response:
+        """Get charts and dashboards count associated to a dataset
+        ---
+        get:
+          description:
+            Get charts and dashboards count associated to a dataset
+          parameters:
+          - in: path
+            name: pk
+            schema:
+              type: integer
+          responses:
+            200:
+              description: chart and dashboard counts
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      charts:
+                        type: object
+                        properties:
+                          count:
+                            type: integer
+                          result:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: integer
+                                slice_name:
+                                  type: string
+                                viz_type:
+                                  type: string
+                      dashboards:
+                        type: object
+                        properties:
+                          count:
+                            type: integer
+                          result:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: integer
+                                json_metadata:
+                                  type: object
+                                slug:
+                                  type: string
+                                title:
+                                  type: string
+            400:
+              $ref: '#/components/responses/400'
+            401:
+              $ref: '#/components/responses/401'
+            404:
+              $ref: '#/components/responses/404'
+            500:
+              $ref: '#/components/responses/500'
+        """
+        try:
+            data = DatasetDAO.get_related_objects(pk)
+            charts = [
+                {
+                    "id": chart.id,
+                    "slice_name": chart.slice_name,
+                    "viz_type": chart.viz_type,
+                }
+                for chart in data["charts"]
+            ]
+            dashboards = [
+                {
+                    "id": dashboard.id,
+                    "json_metadata": dashboard.json_metadata,
+                    "slug": dashboard.slug,
+                    "title": dashboard.dashboard_title,
+                }
+                for dashboard in data["dashboards"]
+            ]
+            return self.response(
+                200,
+                charts={"count": len(charts), "result": charts},
+                dashboards={"count": len(dashboards), "result": dashboards},
+            )
+        except DatasetNotFoundError:
+            return self.response_404()
+        except DatasetForbiddenError:
+            return self.response_403()
