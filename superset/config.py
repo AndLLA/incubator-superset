@@ -202,7 +202,7 @@ APP_ICON_WIDTH = 126
 LOGO_TARGET_PATH = None
 
 # Enables SWAGGER UI for superset openapi spec
-# ex: http://localhost:8080/swaggerview/v1
+# ex: http://localhost:8080/swagger/v1
 FAB_API_SWAGGER_UI = True
 
 # Druid query timezone
@@ -333,7 +333,10 @@ GET_FEATURE_FLAGS_FUNC: Optional[Callable[[Dict[str, bool]], Dict[str, bool]]] =
 # Thumbnail config (behind feature flag)
 # ---------------------------------------------------
 THUMBNAIL_SELENIUM_USER = "Admin"
-THUMBNAIL_CACHE_CONFIG: CacheConfig = {"CACHE_TYPE": "null"}
+THUMBNAIL_CACHE_CONFIG: CacheConfig = {
+    "CACHE_TYPE": "null",
+    "CACHE_NO_NULL_WARNING": True,
+}
 
 # ---------------------------------------------------
 # Image and file configuration
@@ -381,8 +384,8 @@ CSV_EXPORT = {"encoding": "utf-8"}
 # List of time grains to disable in the application (see list of builtin
 # time grains in superset/db_engine_specs.builtin_time_grains).
 # For example: to disable 1 second time grain:
-# TIME_GRAIN_BLACKLIST = ['PT1S']
-TIME_GRAIN_BLACKLIST: List[str] = []
+# TIME_GRAIN_DENYLIST = ['PT1S']
+TIME_GRAIN_DENYLIST: List[str] = []
 
 # Additional time grains to be supported using similar definitions as in
 # superset/db_engine_specs.builtin_time_grains.
@@ -402,17 +405,17 @@ TIME_GRAIN_ADDON_EXPRESSIONS: Dict[str, Dict[str, str]] = {}
 
 # ---------------------------------------------------
 # List of viz_types not allowed in your environment
-# For example: Blacklist pivot table and treemap:
-#  VIZ_TYPE_BLACKLIST = ['pivot_table', 'treemap']
+# For example: Disable pivot table and treemap:
+#  VIZ_TYPE_DENYLIST = ['pivot_table', 'treemap']
 # ---------------------------------------------------
 
-VIZ_TYPE_BLACKLIST: List[str] = []
+VIZ_TYPE_DENYLIST: List[str] = []
 
 # ---------------------------------------------------
 # List of data sources not to be refreshed in druid cluster
 # ---------------------------------------------------
 
-DRUID_DATA_SOURCE_BLACKLIST: List[str] = []
+DRUID_DATA_SOURCE_DENYLIST: List[str] = []
 
 # --------------------------------------------------
 # Modules, datasources and middleware to be registered

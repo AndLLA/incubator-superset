@@ -35,7 +35,7 @@ import 'brace/ext/language_tools';
 import { t } from '@superset-ui/translation';
 import { ColumnOption } from '@superset-ui/chart-controls';
 
-import { AGGREGATES, AGGREGATES_OPTIONS } from '../constants';
+import { AGGREGATES_OPTIONS } from '../constants';
 import AdhocMetricEditPopoverTitle from './AdhocMetricEditPopoverTitle';
 import columnType from '../propTypes/columnType';
 import AdhocMetric, { EXPRESSION_TYPES } from '../AdhocMetric';
@@ -283,7 +283,7 @@ export default class AdhocMetricEditPopover extends React.Component {
                   ref={this.handleAceEditorRef}
                   mode="sql"
                   theme="github"
-                  height={this.state.height - 43 + 'px'}
+                  height={`${this.state.height - 43}px`}
                   onChange={this.onSqlExpressionChange}
                   width="100%"
                   showGutter={false}
@@ -317,6 +317,8 @@ export default class AdhocMetricEditPopover extends React.Component {
             Close
           </Button>
           <i
+            role="button"
+            tabIndex={0}
             onMouseDown={this.onDragDown}
             className="fa fa-expand edit-popover-resize text-muted"
           />
