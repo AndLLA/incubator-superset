@@ -16,14 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { DataRecordFilters } from '@superset-ui/chart';
+import React from 'react';
 
-export default function getEffectiveExtraFilters(filters: DataRecordFilters) {
-  return Object.entries(filters)
-    .map(([column, values]) => ({
-      col: column,
-      op: Array.isArray(values) ? 'in' : '=',
-      val: values,
-    }))
-    .filter(filter => filter.val !== null);
+interface IssueCodeProps {
+  code: number;
+  message: string;
+}
+
+export default function IssueCode({ code, message }: IssueCodeProps) {
+  return (
+    <>
+      {message}{' '}
+      <a
+        href={`https://superset.apache.org/issue_code_reference.html#issue-${code}`}
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        <i className="fa fa-external-link" />
+      </a>
+    </>
+  );
 }
