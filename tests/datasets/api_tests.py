@@ -32,7 +32,7 @@ from superset.dao.exceptions import (
 )
 from superset.extensions import db, security_manager
 from superset.models.core import Database
-from superset.utils.core import get_example_database
+from superset.utils.core import get_example_database, get_main_database
 from superset.utils.dict_import_export import export_to_dict
 from superset.views.base import generate_download_headers
 from tests.base_tests import SupersetTestCase
@@ -57,7 +57,7 @@ class TestDatasetApi(SupersetTestCase):
 
     def insert_default_dataset(self):
         return self.insert_dataset(
-            "ab_permission", "", [self.get_user("admin").id], get_example_database()
+            "ab_permission", "", [self.get_user("admin").id], get_main_database()
         )
 
     @staticmethod
@@ -66,6 +66,15 @@ class TestDatasetApi(SupersetTestCase):
         return (
             db.session.query(SqlaTable)
             .filter_by(database=example_db, table_name="birth_names")
+            .one()
+        )
+
+    @staticmethod
+    def get_energy_usage_dataset():
+        example_db = get_example_database()
+        return (
+            db.session.query(SqlaTable)
+            .filter_by(database=example_db, table_name="energy_usage")
             .one()
         )
 
@@ -133,7 +142,7 @@ class TestDatasetApi(SupersetTestCase):
         """
         Dataset API: Test get dataset item
         """
-        table = self.get_birth_names_dataset()
+        table = self.get_energy_usage_dataset()
         self.login(username="admin")
         uri = f"api/v1/dataset/{table.id}"
         rv = self.get_assert_metric(uri, "get")
@@ -143,21 +152,22 @@ class TestDatasetApi(SupersetTestCase):
             "cache_timeout": None,
             "database": {"database_name": "examples", "id": 1},
             "default_endpoint": None,
-            "description": None,
+            "description": "Energy consumption",
             "fetch_values_predicate": None,
-            "filter_select_enabled": True,
+            "filter_select_enabled": False,
             "is_sqllab_view": False,
-            "main_dttm_col": "ds",
+            "main_dttm_col": None,
             "offset": 0,
             "owners": [],
             "schema": None,
             "sql": None,
-            "table_name": "birth_names",
+            "table_name": "energy_usage",
             "template_params": None,
         }
-        for key, value in expected_result.items():
-            self.assertEqual(response["result"][key], expected_result[key])
-        self.assertEqual(len(response["result"]["columns"]), 8)
+        assert {
+            k: v for k, v in response["result"].items() if k in expected_result
+        } == expected_result
+        self.assertEqual(len(response["result"]["columns"]), 3)
         self.assertEqual(len(response["result"]["metrics"]), 2)
 
     def test_get_dataset_info(self):
@@ -173,10 +183,10 @@ class TestDatasetApi(SupersetTestCase):
         """
         Dataset API: Test create dataset item
         """
-        example_db = get_example_database()
+        main_db = get_main_database()
         self.login(username="admin")
         table_data = {
-            "database": example_db.id,
+            "database": main_db.id,
             "schema": "",
             "table_name": "ab_permission",
         }
@@ -216,9 +226,9 @@ class TestDatasetApi(SupersetTestCase):
         Dataset API: Test create dataset item gamma
         """
         self.login(username="gamma")
-        example_db = get_example_database()
+        main_db = get_main_database()
         table_data = {
-            "database": example_db.id,
+            "database": main_db.id,
             "schema": "",
             "table_name": "ab_permission",
         }
@@ -230,13 +240,13 @@ class TestDatasetApi(SupersetTestCase):
         """
         Dataset API: Test create item owner
         """
-        example_db = get_example_database()
+        main_db = get_main_database()
         self.login(username="alpha")
         admin = self.get_user("admin")
         alpha = self.get_user("alpha")
 
         table_data = {
-            "database": example_db.id,
+            "database": main_db.id,
             "schema": "",
             "table_name": "ab_permission",
             "owners": [admin.id],
@@ -256,10 +266,10 @@ class TestDatasetApi(SupersetTestCase):
         Dataset API: Test create dataset item owner invalid
         """
         admin = self.get_user("admin")
-        example_db = get_example_database()
+        main_db = get_main_database()
         self.login(username="admin")
         table_data = {
-            "database": example_db.id,
+            "database": main_db.id,
             "schema": "",
             "table_name": "ab_permission",
             "owners": [admin.id, 1000],
@@ -324,9 +334,9 @@ class TestDatasetApi(SupersetTestCase):
         """
         mock_dao_create.side_effect = DAOCreateFailedError()
         self.login(username="admin")
-        example_db = get_example_database()
+        main_db = get_main_database()
         dataset_data = {
-            "database": example_db.id,
+            "database": main_db.id,
             "schema": "",
             "table_name": "ab_permission",
         }
@@ -565,16 +575,20 @@ class TestDatasetApi(SupersetTestCase):
         """
         dataset = self.insert_default_dataset()
         self.login(username="admin")
-        table_data = {"table_name": "birth_names"}
+        ab_user = self.insert_dataset(
+            "ab_user", "", [self.get_user("admin").id], get_main_database()
+        )
+        table_data = {"table_name": "ab_user"}
         uri = f"api/v1/dataset/{dataset.id}"
         rv = self.put_assert_metric(uri, table_data, "put")
         data = json.loads(rv.data.decode("utf-8"))
         self.assertEqual(rv.status_code, 422)
         expected_response = {
-            "message": {"table_name": ["Datasource birth_names already exists"]}
+            "message": {"table_name": ["Datasource ab_user already exists"]}
         }
         self.assertEqual(data, expected_response)
         db.session.delete(dataset)
+        db.session.delete(ab_user)
         db.session.commit()
 
     @patch("superset.datasets.dao.DatasetDAO.update")

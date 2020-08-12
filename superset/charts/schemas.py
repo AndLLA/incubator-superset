@@ -402,7 +402,7 @@ class ChartDataSelectOptionsSchema(ChartDataPostProcessingOperationOptionsSchema
         "referenced here.",
         example=["country", "gender", "age"],
     )
-    exclude = fields.List(  # type: ignore
+    exclude = fields.List(
         fields.String(),
         description="Columns to exclude from selection.",
         example=["my_temp_column"],
@@ -659,7 +659,7 @@ class ChartDataExtrasSchema(Schema):
 
     time_range_endpoints = fields.List(
         fields.String(
-            validate=validate.OneOf(choices=("INCLUSIVE", "EXCLUSIVE")),
+            validate=validate.OneOf(choices=("unknown", "inclusive", "exclusive")),
             description="A list with two values, stating if start/end should be "
             "inclusive/exclusive.",
         )
