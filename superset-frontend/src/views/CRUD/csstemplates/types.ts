@@ -16,33 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-@import '../../../../stylesheets/less/variables.less';
+type CreatedByUser = {
+  id: number;
+  first_name: string;
+  last_name: string;
+};
 
-#datasource_menu {
-  border-radius: @border-radius-normal;
-  padding: 0px;
-  border: none;
-}
-
-#datasource_menu .caret {
-  position: relative;
-  padding-right: 8px;
-  margin-left: 4px;
-  color: @lightest;
-  top: -8px;
-}
-
-#datasource_menu .caret {
-  display: none;
-}
-#datasource_menu:hover {
-  background-color: transparent;
-}
-.DatasourceControl svg {
-  vertical-align: middle;
-  color: @brand-primary;
-  cursor: pointer;
-}
-.DatasourceControl .angle {
-  color: @brand-primary;
-}
+export type TemplateObject = {
+  id?: number;
+  changed_on_delta_humanized?: string;
+  created_on?: string;
+  created_by?: CreatedByUser;
+  css?: string;
+  template_name: string;
+};

@@ -266,7 +266,6 @@ export default function getInitialState(bootstrapData) {
       id: dashboard.id,
       slug: dashboard.slug,
       metadata: dashboard.metadata,
-      lastModifiedTime: dashboard.last_modified_time,
       userId: user_id,
       dash_edit_perm: dashboard.dash_edit_perm,
       dash_save_perm: dashboard.dash_save_perm,
@@ -277,6 +276,7 @@ export default function getInitialState(bootstrapData) {
         flash_messages: common.flash_messages,
         conf: common.conf,
       },
+      lastModifiedTime: dashboard.last_modified_time,
     },
     dashboardFilters,
     dashboardState: {
@@ -301,6 +301,7 @@ export default function getInitialState(bootstrapData) {
       isPublished: dashboard.published,
       hasUnsavedChanges: false,
       maxUndoHistoryExceeded: false,
+      lastModifiedTime: dashboard.last_modified_time,
     },
     dashboardLayout,
     messageToasts: [],

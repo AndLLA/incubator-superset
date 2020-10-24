@@ -24,9 +24,8 @@ import { createFetchRelated, createErrorHandler } from 'src/views/CRUD/utils';
 import { useListViewResource, useFavoriteStatus } from 'src/views/CRUD/hooks';
 import ConfirmStatusChange from 'src/components/ConfirmStatusChange';
 import SubMenu, { SubMenuProps } from 'src/components/Menu/SubMenu';
-import AvatarIcon from 'src/components/AvatarIcon';
+import FacePile from 'src/components/FacePile';
 import ListView, { ListViewProps, Filters } from 'src/components/ListView';
-import ExpandableList from 'src/components/ExpandableList';
 import Owner from 'src/types/Owner';
 import withToasts from 'src/messageToasts/enhancers/withToasts';
 import Icon from 'src/components/Icon';
@@ -246,17 +245,9 @@ function DashboardList(props: DashboardListProps) {
       {
         Cell: ({
           row: {
-            original: { owners },
+            original: { owners = [] },
           },
-        }: any) => (
-          <ExpandableList
-            items={owners.map(
-              ({ first_name: firstName, last_name: lastName }: any) =>
-                `${firstName} ${lastName}`,
-            )}
-            display={2}
-          />
-        ),
+        }: any) => <FacePile users={owners} />,
         Header: t('Owners'),
         accessor: 'owners',
         disableSortBy: true,
@@ -267,9 +258,7 @@ function DashboardList(props: DashboardListProps) {
           const handleDelete = () => handleDashboardDelete(original);
           const handleEdit = () => openDashboardEditModal(original);
           const handleExport = () => handleBulkDashboardExport([original]);
-          if (!canEdit && !canDelete && !canExport) {
-            return null;
-          }
+
           return (
             <span className="actions">
               {canDelete && (
@@ -295,7 +284,10 @@ function DashboardList(props: DashboardListProps) {
                         className="action-button"
                         onClick={confirmDelete}
                       >
-                        <Icon name="trash" />
+                        <Icon
+                          data-test="dashboard-list-trash-icon"
+                          name="trash"
+                        />
                       </span>
                     </TooltipWrapper>
                   )}
@@ -338,6 +330,7 @@ function DashboardList(props: DashboardListProps) {
         },
         Header: t('Actions'),
         id: 'actions',
+        hidden: !canEdit && !canDelete && !canExport,
         disableSortBy: true,
       },
     ],
@@ -447,7 +440,11 @@ function DashboardList(props: DashboardListProps) {
                   className="action-button"
                   onClick={confirmDelete}
                 >
-                  <ListViewCard.MenuIcon name="trash" /> Delete
+                  <ListViewCard.MenuIcon
+                    data-test="dashboard-list-view-card-trash-icon"
+                    name="trash"
+                  />{' '}
+                  Delete
                 </div>
               )}
             </ConfirmStatusChange>
@@ -464,6 +461,7 @@ function DashboardList(props: DashboardListProps) {
         )}
         {canEdit && (
           <Menu.Item
+            data-test="dashboard-list-edit-option"
             role="button"
             tabIndex={0}
             onClick={() => openDashboardEditModal(dashboard)}
@@ -488,16 +486,7 @@ function DashboardList(props: DashboardListProps) {
           'Last modified %s',
           dashboard.changed_on_delta_humanized,
         )}
-        coverLeft={(dashboard.owners || []).slice(0, 5).map(owner => (
-          <AvatarIcon
-            key={owner.id}
-            uniqueKey={`${owner.username}-${dashboard.id}`}
-            firstName={owner.first_name}
-            lastName={owner.last_name}
-            iconSize={24}
-            textSize={9}
-          />
-        ))}
+        coverLeft={<FacePile users={dashboard.owners || []} />}
         actions={
           <ListViewCard.Actions>
             {renderFaveStar(dashboard.id)}
@@ -522,7 +511,6 @@ function DashboardList(props: DashboardListProps) {
     subMenuButtons.push({
       name: (
         <>
-          {' '}
           <i className="fa fa-plus" /> {t('Dashboard')}
         </>
       ),

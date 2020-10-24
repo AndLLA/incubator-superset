@@ -56,7 +56,7 @@ export default function EditableTitle({
   const contentRef = useRef<any | HTMLInputElement | HTMLTextAreaElement>();
 
   useEffect(() => {
-    if (currentTitle !== lastTitle) {
+    if (title !== currentTitle) {
       setLastTitle(currentTitle);
       setCurrentTitle(title);
     }
@@ -158,6 +158,7 @@ export default function EditableTitle({
       />
     ) : (
       <input
+        data-test="editable-title-input"
         ref={contentRef}
         required
         type={isEditing ? 'text' : 'button'}
@@ -187,6 +188,7 @@ export default function EditableTitle({
   }
   return (
     <span
+      data-test="editable-title"
       className={cx(
         'editable-title',
         extraClasses,

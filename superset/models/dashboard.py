@@ -156,7 +156,7 @@ class Dashboard(  # pylint: disable=too-many-instance-attributes
     ]
 
     def __repr__(self) -> str:
-        return f"Dashboard<{self.slug or self.id}>"
+        return f"Dashboard<{self.id or self.slug}>"
 
     @property
     def table_names(self) -> str:
@@ -252,8 +252,8 @@ class Dashboard(  # pylint: disable=too-many-instance-attributes
         }
 
     @cache.memoize(
-        # manually maintain cache key version
-        make_name=lambda fname: f"{fname}-v1",
+        # manage cache version manually
+        make_name=lambda fname: f"{fname}-v2.1",
         timeout=config["DASHBOARD_CACHE_TIMEOUT"],
         unless=lambda: not is_feature_enabled("DASHBOARD_CACHE"),
     )
@@ -294,7 +294,7 @@ class Dashboard(  # pylint: disable=too-many-instance-attributes
 
     @debounce(0.1)
     def clear_cache(self) -> None:
-        cache.delete_memoized(self.full_data)
+        cache.delete_memoized(Dashboard.full_data, self)
 
     @classmethod
     @debounce(0.1)
@@ -302,7 +302,7 @@ class Dashboard(  # pylint: disable=too-many-instance-attributes
         filter_query = select([dashboard_slices.c.dashboard_id], distinct=True).where(
             dashboard_slices.c.slice_id == slice_id
         )
-        for (dashboard_id,) in db.session.execute(filter_query):
+        for (dashboard_id,) in db.engine.execute(filter_query):
             cls(id=dashboard_id).clear_cache()
 
     @classmethod
@@ -312,13 +312,13 @@ class Dashboard(  # pylint: disable=too-many-instance-attributes
             [dashboard_slices.c.dashboard_id], distinct=True,
         ).select_from(
             join(
-                Slice,
                 dashboard_slices,
-                Slice.id == dashboard_slices.c.slice_id,
-                Slice.datasource_id == datasource_id,
+                Slice,
+                (Slice.id == dashboard_slices.c.slice_id)
+                & (Slice.datasource_id == datasource_id),
             )
         )
-        for (dashboard_id,) in db.session.execute(filter_query):
+        for (dashboard_id,) in db.engine.execute(filter_query):
             cls(id=dashboard_id).clear_cache()
 
     @classmethod
@@ -598,7 +598,7 @@ if is_feature_enabled("DASHBOARD_CACHE"):
     sqla.event.listen(Slice, "after_update", clear_dashboard_cache)
     sqla.event.listen(Slice, "after_delete", clear_dashboard_cache)
     sqla.event.listen(
-        BaseDatasource, "after_update", clear_dashboard_cache, propagage=True
+        BaseDatasource, "after_update", clear_dashboard_cache, propagate=True
     )
     # also clear cache on column/metric updates since updates to these will not
     # trigger update events for BaseDatasource.
