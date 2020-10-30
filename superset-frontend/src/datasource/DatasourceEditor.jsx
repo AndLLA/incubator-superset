@@ -180,7 +180,7 @@ function ColumnCollectionTable({
               control={
                 <TextControl
                   controlId="python_date_format"
-                  placeholder="%y/%m/%d"
+                  placeholder="%Y/%m/%d"
                 />
               }
             />
@@ -392,14 +392,9 @@ class DatasourceEditor extends React.PureComponent {
 
   syncMetadata() {
     const { datasource } = this.state;
-    // Handle carefully when the schema is empty
-    const endpoint =
-      `/datasource/external_metadata/${
-        datasource.type || datasource.datasource_type
-      }/${datasource.id}/` +
-      `?db_id=${datasource.database.id}` +
-      `&schema=${datasource.schema || ''}` +
-      `&table_name=${datasource.datasource_name || datasource.table_name}`;
+    const endpoint = `/datasource/external_metadata/${
+      datasource.type || datasource.datasource_type
+    }/${datasource.id}/`;
     this.setState({ metadataLoading: true });
 
     SupersetClient.get({ endpoint })
@@ -519,6 +514,25 @@ class DatasourceEditor extends React.PureComponent {
                 'by applying a relative time filter on a partitioned or indexed time-related field.',
             )}
             control={<TextControl controlId="fetch_values_predicate" />}
+          />
+        )}
+        {this.state.isSqla && (
+          <Field
+            fieldKey="extra"
+            label={t('Extra')}
+            description={t(
+              'Extra data to specify table metadata. Currently supports ' +
+                'certification data of the format: `{ "certification": { "certified_by": ' +
+                '"Data Platform Team", "details": "This table is the source of truth." ' +
+                '} }`.',
+            )}
+            control={
+              <TextAreaControl
+                controlId="extra"
+                language="json"
+                offerEditInModal={false}
+              />
+            }
           />
         )}
         <Field
@@ -892,6 +906,7 @@ class DatasourceEditor extends React.PureComponent {
         </div>
         <Tabs
           id="table-tabs"
+          data-test="edit-dataset-tabs"
           onSelect={this.handleTabSelect}
           defaultActiveKey={activeTabKey}
         >
@@ -930,12 +945,6 @@ class DatasourceEditor extends React.PureComponent {
                   buttonStyle="primary"
                   onClick={this.syncMetadata}
                   className="sync-from-source"
-                  disabled={!!datasource.sql}
-                  tooltip={
-                    datasource.sql
-                      ? t('This option is not yet available for views')
-                      : null
-                  }
                 >
                   {t('Sync columns from source')}
                 </Button>

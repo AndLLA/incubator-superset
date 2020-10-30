@@ -18,7 +18,7 @@
 import logging
 import re
 from contextlib import closing
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Callable, cast, Dict, List, Optional, Union
 from urllib import parse
 
@@ -34,13 +34,9 @@ from flask_babel import gettext as __, lazy_gettext as _
 from jinja2.exceptions import TemplateError
 from sqlalchemy import and_, or_
 from sqlalchemy.engine.url import make_url
-from sqlalchemy.exc import (
-    ArgumentError,
-    NoSuchModuleError,
-    OperationalError,
-    SQLAlchemyError,
-)
+from sqlalchemy.exc import ArgumentError, DBAPIError, NoSuchModuleError, SQLAlchemyError
 from sqlalchemy.orm.session import Session
+from sqlalchemy.sql import functions as func
 from werkzeug.urls import Href
 
 from superset import (
@@ -82,6 +78,7 @@ from superset.models.datasource_access_request import DatasourceAccessRequest
 from superset.models.slice import Slice
 from superset.models.sql_lab import Query, TabState
 from superset.models.user_attributes import UserAttribute
+from superset.queries.dao import QueryDAO
 from superset.security.analytics_db_safety import (
     check_sqlalchemy_uri,
     DBSecurityException,
@@ -509,6 +506,7 @@ class Superset(BaseSupersetView):  # pylint: disable=too-many-public-methods
         payloads based on the request args in the first block
 
         TODO: break into one endpoint for each return shape"""
+
         response_type = utils.ChartDataResultFormat.JSON.value
         responses: List[
             Union[utils.ChartDataResultFormat, utils.ChartDataResultType]
@@ -655,9 +653,7 @@ class Superset(BaseSupersetView):  # pylint: disable=too-many-public-methods
 
         # slc perms
         slice_add_perm = security_manager.can_access("can_add", "SliceModelView")
-        slice_overwrite_perm = (
-            security_manager.can_access("can_edit", "SliceModelView") if slc else False
-        )
+        slice_overwrite_perm = is_owner(slc, g.user) if slc else False
         slice_download_perm = security_manager.can_access(
             "can_download", "SliceModelView"
         )
@@ -1151,8 +1147,10 @@ class Superset(BaseSupersetView):  # pylint: disable=too-many-public-methods
             engine = database.get_sqla_engine(user_name=username)
 
             with closing(engine.raw_connection()) as conn:
-                engine.dialect.do_ping(conn)
-                return json_success('"OK"')
+                if engine.dialect.do_ping(conn):
+                    return json_success('"OK"')
+
+                raise DBAPIError(None, None, None)
         except CertificateException as ex:
             logger.info("Certificate exception")
             return json_error_response(ex.message)
@@ -1174,7 +1172,7 @@ class Superset(BaseSupersetView):  # pylint: disable=too-many-public-methods
                     "'DRIVER://USER:PASSWORD@DB-HOST/DATABASE-NAME'"
                 )
             )
-        except OperationalError:
+        except DBAPIError:
             logger.warning("Connection failed")
             return json_error_response(
                 _("Connection failed, please check your connection settings"), 400
@@ -1195,41 +1193,93 @@ class Superset(BaseSupersetView):  # pylint: disable=too-many-public-methods
         self, user_id: int
     ) -> FlaskResponse:
         """Recent activity (actions) for a given user"""
-        if request.args.get("limit"):
-            limit = int(request.args["limit"])
-        else:
-            limit = 1000
+        limit = request.args.get("limit")
+        limit = int(limit) if limit and limit.isdigit() else 100
+        actions = request.args.get("actions", "explore,dashboard").split(",")
+        # whether to get distinct subjects
+        distinct = request.args.get("distinct") != "false"
 
-        qry = (
-            db.session.query(Log, Dashboard, Slice)
-            .outerjoin(Dashboard, Dashboard.id == Log.dashboard_id)
-            .outerjoin(Slice, Slice.id == Log.slice_id)
-            .filter(
-                and_(
-                    Log.action.in_(("queries", "shortner", "sql_json")),
-                    Log.user_id == user_id,
-                )
-            )
-            .order_by(Log.dttm.desc())
-            .limit(limit)
+        has_subject_title = or_(
+            and_(
+                Dashboard.dashboard_title is not None, Dashboard.dashboard_title != "",
+            ),
+            and_(Slice.slice_name is not None, Slice.slice_name != ""),
         )
+
+        if distinct:
+            one_year_ago = datetime.today() - timedelta(days=365)
+            subqry = (
+                db.session.query(
+                    Log.dashboard_id,
+                    Log.slice_id,
+                    Log.action,
+                    func.max(Log.dttm).label("dttm"),
+                )
+                .group_by(Log.dashboard_id, Log.slice_id, Log.action)
+                .filter(
+                    and_(
+                        Log.action.in_(actions),
+                        Log.user_id == user_id,
+                        # limit to one year of data to improve performance
+                        Log.dttm > one_year_ago,
+                        or_(Log.dashboard_id.isnot(None), Log.slice_id.isnot(None)),
+                    )
+                )
+                .subquery()
+            )
+            qry = (
+                db.session.query(
+                    subqry,
+                    Dashboard.slug.label("dashboard_slug"),
+                    Dashboard.dashboard_title,
+                    Slice.slice_name,
+                )
+                .outerjoin(Dashboard, Dashboard.id == subqry.c.dashboard_id)
+                .outerjoin(Slice, Slice.id == subqry.c.slice_id,)
+                .filter(has_subject_title)
+                .order_by(subqry.c.dttm.desc())
+                .limit(limit)
+            )
+        else:
+            qry = (
+                db.session.query(
+                    Log.dttm,
+                    Log.action,
+                    Log.dashboard_id,
+                    Log.slice_id,
+                    Dashboard.slug.label("dashboard_slug"),
+                    Dashboard.dashboard_title,
+                    Slice.slice_name,
+                )
+                .outerjoin(Dashboard, Dashboard.id == Log.dashboard_id)
+                .outerjoin(Slice, Slice.id == Log.slice_id)
+                .filter(has_subject_title)
+                .order_by(Log.dttm.desc())
+                .limit(limit)
+            )
+
         payload = []
         for log in qry.all():
             item_url = None
             item_title = None
-            if log.Dashboard:
-                item_url = log.Dashboard.url
-                item_title = log.Dashboard.dashboard_title
-            elif log.Slice:
-                item_url = log.Slice.slice_url
-                item_title = log.Slice.slice_name
+            item_type = None
+            if log.dashboard_id:
+                item_type = "dashboard"
+                item_url = Dashboard(id=log.dashboard_id, slug=log.dashboard_slug).url
+                item_title = log.dashboard_title
+            elif log.slice_id:
+                slc = Slice(id=log.slice_id, slice_name=log.slice_name)
+                item_type = "slice"
+                item_url = slc.slice_url
+                item_title = slc.chart
 
             payload.append(
                 {
-                    "action": log.Log.action,
+                    "action": log.action,
+                    "item_type": item_type,
                     "item_url": item_url,
                     "item_title": item_title,
-                    "time": log.Log.dttm,
+                    "time": log.dttm,
                 }
             )
         return json_success(json.dumps(payload, default=utils.json_int_dttm_ser))
@@ -2144,6 +2194,7 @@ class Superset(BaseSupersetView):  # pylint: disable=too-many-public-methods
         """
         logger.info("Query %i: Running query on a Celery worker", query.id)
         # Ignore the celery future object and the request may time out.
+        query_id = query.id
         try:
             task = sql_lab.get_sql_results.delay(
                 query.id,
@@ -2170,6 +2221,10 @@ class Superset(BaseSupersetView):  # pylint: disable=too-many-public-methods
             query.error_message = msg
             session.commit()
             return json_error_response("{}".format(msg))
+
+        # Update saved query with execution info from the query execution
+        QueryDAO.update_saved_query_exec_info(query_id)
+
         resp = json_success(
             json.dumps(
                 {"query": query.to_dict()},
@@ -2204,6 +2259,7 @@ class Superset(BaseSupersetView):  # pylint: disable=too-many-public-methods
                 is_feature_enabled("SQLLAB_BACKEND_PERSISTENCE")
                 and not query.select_as_cta
             )
+            query_id = query.id
             with utils.timeout(seconds=timeout, error_message=timeout_msg):
                 # pylint: disable=no-value-for-parameter
                 data = sql_lab.get_sql_results(
@@ -2215,6 +2271,9 @@ class Superset(BaseSupersetView):  # pylint: disable=too-many-public-methods
                     expand_data=expand_data,
                     log_params=log_params,
                 )
+
+            # Update saved query if needed
+            QueryDAO.update_saved_query_exec_info(query_id)
 
             payload = json.dumps(
                 apply_display_max_row_limit(data),

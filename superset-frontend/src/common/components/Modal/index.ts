@@ -16,28 +16,5 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React from 'react';
-import { shallow } from 'enzyme';
-
-import FilterIndicatorTooltip from 'src/dashboard/components/FilterIndicatorTooltip';
-
-describe('FilterIndicatorTooltip', () => {
-  const label = 'region';
-  const mockedProps = {
-    colorCode: 'badge-1',
-    label,
-    values: [],
-    clickIconHandler: jest.fn(),
-  };
-
-  function setup(overrideProps) {
-    return shallow(
-      <FilterIndicatorTooltip {...mockedProps} {...overrideProps} />,
-    );
-  }
-
-  it('should show label', () => {
-    const wrapper = setup();
-    expect(wrapper.find(`[htmlFor="filter-tooltip-${label}"]`)).toExist();
-  });
-});
+export * from './Modal';
+export { default } from './Modal';

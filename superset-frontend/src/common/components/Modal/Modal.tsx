@@ -18,9 +18,10 @@
  */
 import React from 'react';
 import { isNil } from 'lodash';
-import { styled, t } from '@superset-ui/core';
+import { styled, SupersetThemeProps, t } from '@superset-ui/core';
 import { Modal as BaseModal } from 'src/common/components';
 import Button from 'src/components/Button';
+import { css } from '@emotion/core';
 
 interface ModalProps {
   className?: string;
@@ -33,12 +34,27 @@ interface ModalProps {
   show: boolean;
   title: React.ReactNode;
   width?: string;
+  maxWidth?: string;
+  responsive?: boolean;
   hideFooter?: boolean;
   centered?: boolean;
   footer?: React.ReactNode;
 }
 
-const StyledModal = styled(BaseModal)`
+interface StyledModalProps extends SupersetThemeProps {
+  maxWidth?: string;
+  responsive?: boolean;
+}
+
+const StyledModal = styled(BaseModal)<StyledModalProps>`
+  ${({ theme, responsive, maxWidth }) =>
+    responsive &&
+    css`
+      max-width: ${maxWidth ?? '900px'};
+      padding-left: ${theme.gridUnit * 3}px;
+      padding-right: ${theme.gridUnit * 3}px;
+    `}
+
   .ant-modal-header {
     background-color: ${({ theme }) => theme.colors.grayscale.light4};
     border-radius: ${({ theme }) => theme.borderRadius}px
@@ -94,11 +110,13 @@ export default function Modal({
   disablePrimaryButton = false,
   onHide,
   onHandledPrimaryAction,
-  primaryButtonName,
+  primaryButtonName = t('OK'),
   primaryButtonType = 'primary',
   show,
   title,
   width,
+  maxWidth,
+  responsive = false,
   centered,
   footer,
   hideFooter,
@@ -106,7 +124,7 @@ export default function Modal({
 }: ModalProps) {
   const modalFooter = isNil(footer)
     ? [
-        <Button key="back" onClick={onHide} cta>
+        <Button key="back" onClick={onHide} cta data-test="modal-cancel-button">
           {t('Cancel')}
         </Button>,
         <Button
@@ -115,18 +133,22 @@ export default function Modal({
           disabled={disablePrimaryButton}
           onClick={onHandledPrimaryAction}
           cta
+          data-test="modal-confirm-button"
         >
           {primaryButtonName}
         </Button>,
       ]
     : footer;
 
+  const modalWidth = width || (responsive ? '100vw' : '600px');
   return (
     <StyledModal
       centered={!!centered}
       onOk={onHandledPrimaryAction}
       onCancel={onHide}
-      width={width || '600px'}
+      width={modalWidth}
+      maxWidth={maxWidth}
+      responsive={responsive}
       visible={show}
       title={title}
       closeIcon={
@@ -135,6 +157,7 @@ export default function Modal({
         </span>
       }
       footer={!hideFooter ? modalFooter : null}
+      wrapProps={{ 'data-test': `${title}-modal` }}
       {...rest}
     >
       {children}
