@@ -32,6 +32,7 @@ interface ModalProps {
   primaryButtonName?: string;
   primaryButtonType?: 'primary' | 'danger';
   show: boolean;
+  name?: string;
   title: React.ReactNode;
   width?: string;
   maxWidth?: string;
@@ -106,7 +107,7 @@ const StyledModal = styled(BaseModal)<StyledModalProps>`
   }
 `;
 
-export default function Modal({
+const CustomModal = ({
   children,
   disablePrimaryButton = false,
   onHide,
@@ -114,6 +115,7 @@ export default function Modal({
   primaryButtonName = t('OK'),
   primaryButtonType = 'primary',
   show,
+  name,
   title,
   width,
   maxWidth,
@@ -123,7 +125,7 @@ export default function Modal({
   hideFooter,
   wrapProps,
   ...rest
-}: ModalProps) {
+}: ModalProps) => {
   const modalFooter = isNil(footer)
     ? [
         <Button key="back" onClick={onHide} cta data-test="modal-cancel-button">
@@ -159,10 +161,20 @@ export default function Modal({
         </span>
       }
       footer={!hideFooter ? modalFooter : null}
-      wrapProps={{ 'data-test': `${title}-modal`, ...wrapProps }}
+      wrapProps={{ 'data-test': `${name || title}-modal`, ...wrapProps }}
       {...rest}
     >
       {children}
     </StyledModal>
   );
-}
+};
+CustomModal.displayName = 'Modal';
+
+const Modal = Object.assign(CustomModal, {
+  error: BaseModal.error,
+  warning: BaseModal.warning,
+  confirm: BaseModal.confirm,
+  useModal: BaseModal.useModal,
+});
+
+export default Modal;

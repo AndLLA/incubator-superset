@@ -35,8 +35,6 @@ import { NEW_TAB_ID, DASHBOARD_ROOT_ID } from '../../util/constants';
 import { RENDER_TAB, RENDER_TAB_CONTENT } from './Tab';
 import { TAB_TYPE } from '../../util/componentTypes';
 
-const MAX_TAB_COUNT = 10;
-
 const propTypes = {
   id: PropTypes.string.isRequired,
   parentId: PropTypes.string.isRequired,
@@ -51,7 +49,6 @@ const propTypes = {
 
   // actions (from DashboardComponent.jsx)
   logEvent: PropTypes.func.isRequired,
-  setMountedTab: PropTypes.func.isRequired,
 
   // grid related
   availableColumnCount: PropTypes.number,
@@ -105,9 +102,16 @@ const StyledTabsContainer = styled.div`
     top: ${({ theme }) => theme.gridUnit * 2}px;
   }
 
-  .editable-title input {
-    cursor: pointer;
-    text-transform: uppercase;
+  .ant-tabs {
+    overflow: visible;
+
+    .ant-tabs-content-holder {
+      overflow: visible;
+    }
+  }
+
+  div .ant-tabs-tab-btn {
+    text-transform: none;
   }
 `;
 
@@ -202,7 +206,7 @@ class Tabs extends React.PureComponent {
   };
 
   handleClickTab(tabIndex) {
-    const { component, renderTabContent } = this.props;
+    const { component } = this.props;
 
     if (tabIndex !== this.state.tabIndex) {
       const pathToTabIndex = getDirectPathToTabIndex(component, tabIndex);
@@ -213,11 +217,6 @@ class Tabs extends React.PureComponent {
       });
 
       this.props.onChangeTab({ pathToTabIndex });
-    }
-    if (renderTabContent) {
-      const tabIds = component.children;
-      const activeKey = tabIds[this.state.tabIndex];
-      this.props.setMountedTab(activeKey);
     }
   }
 
@@ -304,7 +303,6 @@ class Tabs extends React.PureComponent {
                 this.handleClickTab(tabIds.indexOf(key));
               }}
               onEdit={this.handleEdit}
-              hideAdd={tabIds.length >= MAX_TAB_COUNT}
               data-test="nav-list"
               type={editMode ? 'editable-card' : 'card'}
             >
