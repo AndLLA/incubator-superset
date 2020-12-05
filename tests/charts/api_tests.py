@@ -30,17 +30,18 @@ import yaml
 from sqlalchemy import and_
 from sqlalchemy.sql import func
 
-from superset.connectors.sqla.models import SqlaTable
-from superset.utils.core import get_example_database
-from tests.fixtures.unicode_dashboard import load_unicode_dashboard_with_slice
 from tests.test_app import app
+from superset.connectors.sqla.models import SqlaTable
+from superset.utils.core import AnnotationType, get_example_database
 from superset.connectors.connector_registry import ConnectorRegistry
 from superset.extensions import db, security_manager
+from superset.models.annotations import AnnotationLayer
 from superset.models.core import Database, FavStar, FavStarClassName
 from superset.models.dashboard import Dashboard
 from superset.models.reports import ReportSchedule, ReportScheduleType
 from superset.models.slice import Slice
 from superset.utils import core as utils
+
 from tests.base_api_tests import ApiOwnersTestCaseMixin
 from tests.base_tests import SupersetTestCase
 from tests.fixtures.importexport import (
@@ -50,7 +51,9 @@ from tests.fixtures.importexport import (
     dataset_config,
     dataset_metadata_config,
 )
-from tests.fixtures.query_context import get_query_context
+from tests.fixtures.query_context import get_query_context, ANNOTATION_LAYERS
+from tests.fixtures.unicode_dashboard import load_unicode_dashboard_with_slice
+from tests.annotation_layers.fixtures import create_annotation_layers
 
 CHART_DATA_URI = "api/v1/chart/data"
 CHARTS_FIXTURE_COUNT = 10
@@ -136,6 +139,38 @@ class TestChartApi(SupersetTestCase, ApiOwnersTestCaseMixin):
             # rollback changes
             db.session.delete(report_schedule)
             db.session.delete(chart)
+            db.session.commit()
+
+    @pytest.fixture()
+    def add_dashboard_to_chart(self):
+        with self.create_app().app_context():
+            admin = self.get_user("admin")
+
+            self.chart = self.insert_chart("My chart", [admin.id], 1)
+
+            self.original_dashboard = Dashboard()
+            self.original_dashboard.dashboard_title = "Original Dashboard"
+            self.original_dashboard.slug = "slug"
+            self.original_dashboard.owners = [admin]
+            self.original_dashboard.slices = [self.chart]
+            self.original_dashboard.published = False
+            db.session.add(self.original_dashboard)
+
+            self.new_dashboard = Dashboard()
+            self.new_dashboard.dashboard_title = "New Dashboard"
+            self.new_dashboard.slug = "new_slug"
+            self.new_dashboard.owners = [admin]
+            self.new_dashboard.slices = []
+            self.new_dashboard.published = False
+            db.session.add(self.new_dashboard)
+
+            db.session.commit()
+
+            yield self.chart
+
+            db.session.delete(self.original_dashboard)
+            db.session.delete(self.new_dashboard)
+            db.session.delete(self.chart)
             db.session.commit()
 
     def test_delete_chart(self):
@@ -521,6 +556,35 @@ class TestChartApi(SupersetTestCase, ApiOwnersTestCaseMixin):
         self.assertIn(admin, model.owners)
         db.session.delete(model)
         db.session.commit()
+
+    @pytest.mark.usefixtures("add_dashboard_to_chart")
+    def test_update_chart_new_dashboards(self):
+        """
+        Chart API: Test update set new owner to current user
+        """
+        chart_data = {
+            "slice_name": "title1_changed",
+            "dashboards": [self.new_dashboard.id],
+        }
+        self.login(username="admin")
+        uri = f"api/v1/chart/{self.chart.id}"
+        rv = self.put_assert_metric(uri, chart_data, "put")
+        self.assertEqual(rv.status_code, 200)
+        self.assertIn(self.new_dashboard, self.chart.dashboards)
+        self.assertNotIn(self.original_dashboard, self.chart.dashboards)
+
+    @pytest.mark.usefixtures("add_dashboard_to_chart")
+    def test_not_update_chart_none_dashboards(self):
+        """
+        Chart API: Test update set new owner to current user
+        """
+        chart_data = {"slice_name": "title1_changed_again"}
+        self.login(username="admin")
+        uri = f"api/v1/chart/{self.chart.id}"
+        rv = self.put_assert_metric(uri, chart_data, "put")
+        self.assertEqual(rv.status_code, 200)
+        self.assertIn(self.original_dashboard, self.chart.dashboards)
+        self.assertEqual(len(self.chart.dashboards), 1)
 
     def test_update_chart_not_owned(self):
         """
@@ -1322,3 +1386,44 @@ class TestChartApi(SupersetTestCase, ApiOwnersTestCaseMixin):
         assert response == {
             "message": {"metadata.yaml": {"type": ["Must be equal to Slice."]}}
         }
+
+    @pytest.mark.usefixtures("create_annotation_layers")
+    def test_chart_data_annotations(self):
+        """
+        Chart data API: Test chart data query
+        """
+        self.login(username="admin")
+        table = self.get_table_by_name("birth_names")
+        request_payload = get_query_context(table.name, table.id, table.type)
+
+        annotation_layers = []
+        request_payload["queries"][0]["annotation_layers"] = annotation_layers
+
+        # formula
+        annotation_layers.append(ANNOTATION_LAYERS[AnnotationType.FORMULA])
+
+        # interval
+        interval_layer = (
+            db.session.query(AnnotationLayer)
+            .filter(AnnotationLayer.name == "name1")
+            .one()
+        )
+        interval = ANNOTATION_LAYERS[AnnotationType.INTERVAL]
+        interval["value"] = interval_layer.id
+        annotation_layers.append(interval)
+
+        # event
+        event_layer = (
+            db.session.query(AnnotationLayer)
+            .filter(AnnotationLayer.name == "name2")
+            .one()
+        )
+        event = ANNOTATION_LAYERS[AnnotationType.EVENT]
+        event["value"] = event_layer.id
+        annotation_layers.append(event)
+
+        rv = self.post_assert_metric(CHART_DATA_URI, request_payload, "data")
+        self.assertEqual(rv.status_code, 200)
+        data = json.loads(rv.data.decode("utf-8"))
+        # response should only contain interval and event data, not formula
+        self.assertEqual(len(data["result"][0]["annotation_data"]), 2)

@@ -101,12 +101,13 @@ class ReportScheduleRestApi(BaseSupersetModelRestApi):
         "created_by.first_name",
         "created_by.last_name",
         "created_on",
+        "crontab",
         "id",
         "last_eval_dttm",
         "last_state",
         "name",
-        "owners.id",
         "owners.first_name",
+        "owners.id",
         "owners.last_name",
         "recipients.id",
         "recipients.type",
@@ -144,7 +145,7 @@ class ReportScheduleRestApi(BaseSupersetModelRestApi):
         "name",
         "type",
     ]
-    search_columns = ["name", "active", "created_by", "type"]
+    search_columns = ["name", "active", "created_by", "type", "last_state"]
     search_filters = {"name": [ReportScheduleAllTextFilter]}
     allowed_rel_fields = {"created_by", "chart", "dashboard"}
     filter_rel_fields = {
