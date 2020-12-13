@@ -87,6 +87,8 @@ class ReportScheduleRestApi(BaseSupersetModelRestApi):
         "recipients.id",
         "recipients.type",
         "recipients.recipient_config_json",
+        "sql",
+        "working_timeout",
     ]
     show_select_columns = show_columns + [
         "chart.datasource_id",
@@ -128,6 +130,7 @@ class ReportScheduleRestApi(BaseSupersetModelRestApi):
         "recipients",
         "sql",
         "type",
+        "working_timeout",
         "validator_config_json",
         "validator_type",
     ]

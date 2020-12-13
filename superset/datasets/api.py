@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+import json
 import logging
 from datetime import datetime
 from distutils.util import strtobool
@@ -623,11 +624,19 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         ---
         post:
           requestBody:
+            required: true
             content:
-              application/zip:
+              multipart/form-data:
                 schema:
-                  type: string
-                  format: binary
+                  type: object
+                  properties:
+                    formData:
+                      type: string
+                      format: binary
+                    passwords:
+                      type: string
+                    overwrite:
+                      type: bool
           responses:
             200:
               description: Dataset import result
@@ -656,7 +665,16 @@ class DatasetRestApi(BaseSupersetModelRestApi):
                 for file_name in bundle.namelist()
             }
 
-        command = ImportDatasetsCommand(contents)
+        passwords = (
+            json.loads(request.form["passwords"])
+            if "passwords" in request.form
+            else None
+        )
+        overwrite = request.form.get("overwrite") == "true"
+
+        command = ImportDatasetsCommand(
+            contents, passwords=passwords, overwrite=overwrite
+        )
         try:
             command.run()
             return self.response(200, message="OK")

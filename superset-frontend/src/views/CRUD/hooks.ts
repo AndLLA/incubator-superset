@@ -25,7 +25,8 @@ import { FetchDataConfig } from 'src/components/ListView';
 import { FilterValue } from 'src/components/ListView/types';
 import Chart, { Slice } from 'src/types/Chart';
 import copyTextToClipboard from 'src/utils/copy';
-import { FavoriteStatus } from './types';
+import { getClientErrorObject } from 'src/utils/getClientErrorObject';
+import { FavoriteStatus, ImportResourceName } from './types';
 
 interface ListViewResourceState<D extends object = any> {
   loading: boolean;
@@ -184,6 +185,7 @@ export function useListViewResource<D extends object = any>(
 interface SingleViewResourceState<D extends object = any> {
   loading: boolean;
   resource: D | null;
+  error: string | null;
 }
 
 export function useSingleViewResource<D extends object = any>(
@@ -194,6 +196,7 @@ export function useSingleViewResource<D extends object = any>(
   const [state, setState] = useState<SingleViewResourceState<D>>({
     loading: false,
     resource: null,
+    error: null,
   });
 
   function updateState(update: Partial<SingleViewResourceState<D>>) {
@@ -213,18 +216,23 @@ export function useSingleViewResource<D extends object = any>(
         ({ json = {} }) => {
           updateState({
             resource: json.result,
+            error: null,
           });
           return json.result;
         },
-        createErrorHandler(errMsg =>
+        createErrorHandler(errMsg => {
           handleErrorMsg(
             t(
               'An error occurred while fetching %ss: %s',
               resourceLabel,
               JSON.stringify(errMsg),
             ),
-          ),
-        ),
+          );
+
+          updateState({
+            error: errMsg,
+          });
+        }),
       )
       .finally(() => {
         updateState({ loading: false });
@@ -298,10 +306,7 @@ export function useSingleViewResource<D extends object = any>(
   }, []);
 
   return {
-    state: {
-      loading: state.loading,
-      resource: state.resource,
-    },
+    state,
     setResource: (update: D) =>
       updateState({
         resource: update,
@@ -310,6 +315,131 @@ export function useSingleViewResource<D extends object = any>(
     createResource,
     updateResource,
   };
+}
+
+interface ImportResourceState {
+  loading: boolean;
+  passwordsNeeded: string[];
+  alreadyExists: string[];
+}
+
+export function useImportResource(
+  resourceName: ImportResourceName,
+  resourceLabel: string, // resourceLabel for translations
+  handleErrorMsg: (errorMsg: string) => void,
+) {
+  const [state, setState] = useState<ImportResourceState>({
+    loading: false,
+    passwordsNeeded: [],
+    alreadyExists: [],
+  });
+
+  function updateState(update: Partial<ImportResourceState>) {
+    setState(currentState => ({ ...currentState, ...update }));
+  }
+
+  /* eslint-disable no-underscore-dangle */
+  const isNeedsPassword = (payload: any) =>
+    typeof payload === 'object' &&
+    Array.isArray(payload._schema) &&
+    payload._schema.length === 1 &&
+    payload._schema[0] === 'Must provide a password for the database';
+
+  const isAlreadyExists = (payload: any) =>
+    typeof payload === 'string' &&
+    payload.includes('already exists and `overwrite=true` was not passed');
+
+  const getPasswordsNeeded = (
+    errMsg: Record<string, Record<string, string[]>>,
+  ) =>
+    Object.entries(errMsg)
+      .filter(([, validationErrors]) => isNeedsPassword(validationErrors))
+      .map(([fileName]) => fileName);
+
+  const getAlreadyExists = (errMsg: Record<string, Record<string, string[]>>) =>
+    Object.entries(errMsg)
+      .filter(([, validationErrors]) => isAlreadyExists(validationErrors))
+      .map(([fileName]) => fileName);
+
+  const hasTerminalValidation = (
+    errMsg: Record<string, Record<string, string[]>>,
+  ) =>
+    Object.values(errMsg).some(
+      validationErrors =>
+        !isNeedsPassword(validationErrors) &&
+        !isAlreadyExists(validationErrors),
+    );
+
+  const importResource = useCallback(
+    (
+      bundle: File,
+      databasePasswords: Record<string, string> = {},
+      overwrite = false,
+    ) => {
+      // Set loading state
+      updateState({
+        loading: true,
+      });
+
+      const formData = new FormData();
+      formData.append('formData', bundle);
+
+      /* The import bundle never contains database passwords; if required
+       * they should be provided by the user during import.
+       */
+      if (databasePasswords) {
+        formData.append('passwords', JSON.stringify(databasePasswords));
+      }
+      /* If the imported model already exists the user needs to confirm
+       * that they want to overwrite it.
+       */
+      if (overwrite) {
+        formData.append('overwrite', 'true');
+      }
+
+      return SupersetClient.post({
+        endpoint: `/api/v1/${resourceName}/import/`,
+        body: formData,
+      })
+        .then(() => true)
+        .catch(response =>
+          getClientErrorObject(response).then(error => {
+            const errMsg = error.message || error.error;
+            if (typeof errMsg === 'string') {
+              handleErrorMsg(
+                t(
+                  'An error occurred while importing %s: %s',
+                  resourceLabel,
+                  errMsg,
+                ),
+              );
+              return false;
+            }
+            if (hasTerminalValidation(errMsg)) {
+              handleErrorMsg(
+                t(
+                  'An error occurred while importing %s: %s',
+                  resourceLabel,
+                  JSON.stringify(errMsg),
+                ),
+              );
+            } else {
+              updateState({
+                passwordsNeeded: getPasswordsNeeded(errMsg),
+                alreadyExists: getAlreadyExists(errMsg),
+              });
+            }
+            return false;
+          }),
+        )
+        .finally(() => {
+          updateState({ loading: false });
+        });
+    },
+    [],
+  );
+
+  return { state, importResource };
 }
 
 enum FavStarClassName {
