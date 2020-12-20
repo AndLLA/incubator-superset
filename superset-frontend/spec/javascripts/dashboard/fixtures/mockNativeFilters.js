@@ -16,24 +16,35 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React from 'react';
-import { mount } from 'enzyme';
-import { supersetTheme, ThemeProvider } from '@superset-ui/core';
-
-import CodeModal from 'src/dashboard/components/CodeModal';
-
-describe('CodeModal', () => {
-  const mockedProps = {
-    triggerNode: <i className="fa fa-edit" />,
-  };
-  it('is valid', () => {
-    expect(React.isValidElement(<CodeModal {...mockedProps} />)).toBe(true);
-  });
-  it('renders the trigger node', () => {
-    const wrapper = mount(<CodeModal {...mockedProps} />, {
-      wrappingComponent: ThemeProvider,
-      wrappingComponentProps: { theme: supersetTheme },
-    });
-    expect(wrapper.find('.fa-edit')).toExist();
-  });
-});
+export const nativeFiltersInfo = {
+  filters: {
+    DefaultID1: {
+      id: 'DefaultID1',
+      name: 'test',
+      type: 'text',
+      targets: [
+        {
+          datasetId: 0,
+          column: {
+            name: 'test column',
+            displayName: 'test column',
+          },
+        },
+      ],
+      defaultValue: null,
+      scope: {
+        rootPath: [],
+        excluded: [],
+      },
+      isInstant: true,
+      allowsMultipleValues: true,
+      isRequired: false,
+    },
+  },
+  filtersState: {
+    DefaultsID: {
+      id: 'DefaultId',
+      selectedValues: [],
+    },
+  },
+};

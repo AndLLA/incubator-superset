@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# pylint: disable=comparison-with-callable
+# pylint: disable=comparison-with-callable, line-too-long, too-many-branches
 import logging
 import re
 from contextlib import closing
@@ -34,8 +34,9 @@ from flask_appbuilder.security.decorators import (
     permission_name,
 )
 from flask_appbuilder.security.sqla import models as ab_models
-from flask_babel import gettext as __, lazy_gettext as _
+from flask_babel import gettext as __, lazy_gettext as _, ngettext
 from jinja2.exceptions import TemplateError
+from jinja2.meta import find_undeclared_variables
 from sqlalchemy import and_, or_
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import ArgumentError, DBAPIError, NoSuchModuleError, SQLAlchemyError
@@ -75,7 +76,9 @@ from superset.exceptions import (
     DatabaseNotFound,
     SerializationError,
     SupersetException,
+    SupersetGenericDBErrorException,
     SupersetSecurityException,
+    SupersetTemplateParamsErrorException,
     SupersetTimeoutException,
 )
 from superset.extensions import async_query_manager, cache_manager
@@ -157,6 +160,11 @@ DATABASE_KEYS = [
 
 DATASOURCE_MISSING_ERR = __("The data source seems to have been deleted")
 USER_MISSING_ERR = __("The user seems to have been deleted")
+PARAMETER_MISSING_ERR = (
+    "Please check your template parameters for syntax errors and make sure "
+    "they match across your SQL query and Set Parameters. Then, try running "
+    "your query again."
+)
 
 
 class Superset(BaseSupersetView):  # pylint: disable=too-many-public-methods
@@ -717,16 +725,18 @@ class Superset(BaseSupersetView):  # pylint: disable=too-many-public-methods
                 f"datasource_id={datasource_id}&"
             )
 
+        # if feature enabled, run some health check rules for sqla datasource
+        if hasattr(datasource, "health_check"):
+            datasource.health_check()
+
         viz_type = form_data.get("viz_type")
         if not viz_type and datasource.default_endpoint:
             return redirect(datasource.default_endpoint)
 
         # slc perms
-        slice_add_perm = security_manager.can_access("can_add", "SliceModelView")
+        slice_add_perm = security_manager.can_access("can_write", "Chart")
         slice_overwrite_perm = is_owner(slc, g.user) if slc else False
-        slice_download_perm = security_manager.can_access(
-            "can_download", "SliceModelView"
-        )
+        slice_download_perm = security_manager.can_access("can_read", "Chart")
 
         form_data["datasource"] = str(datasource_id) + "__" + cast(str, datasource_type)
 
@@ -911,7 +921,7 @@ class Superset(BaseSupersetView):  # pylint: disable=too-many-public-methods
         elif new_dashboard_name:
             # Creating and adding to a new dashboard
             # check create dashboard permissions
-            dash_add_perm = security_manager.can_access("can_add", "DashboardModelView")
+            dash_add_perm = security_manager.can_access("can_write", "Dashboard")
             if not dash_add_perm:
                 return json_error_response(
                     _("You don't have the rights to ")
@@ -1754,13 +1764,13 @@ class Superset(BaseSupersetView):  # pylint: disable=too-many-public-methods
 
     @has_access
     @expose("/dashboard/<dashboard_id_or_slug>/")
-    @event_logger.log_manually
+    @event_logger.log_this_with_extra_payload
     def dashboard(  # pylint: disable=too-many-locals
         self,
         dashboard_id_or_slug: str,
-        # this parameter is added by `log_manually`,
+        # this parameter is added by `log_this_with_manual_updates`,
         # set a default value to appease pylint
-        update_log_payload: Callable[..., None] = lambda **kwargs: None,
+        add_extra_log_payload: Callable[..., None] = lambda **kwargs: None,
     ) -> FlaskResponse:
         """Server side rendering for a dashboard"""
         session = db.session()
@@ -1809,7 +1819,7 @@ class Superset(BaseSupersetView):  # pylint: disable=too-many-public-methods
             request.args.get(utils.ReservedUrlParameters.EDIT_MODE.value) == "true"
         )
 
-        update_log_payload(
+        add_extra_log_payload(
             dashboard_id=dash.id,
             dashboard_version="v2",
             dash_edit_perm=dash_edit_perm,
@@ -2390,10 +2400,11 @@ class Superset(BaseSupersetView):  # pylint: disable=too-many-public-methods
             # re-raise exception for api exception handler
             raise ex
         except Exception as ex:  # pylint: disable=broad-except
-            logger.exception("Query %i: %s", query.id, str(ex))
-            return json_error_response(utils.error_msg_from_exception(ex))
+            logger.exception("Query %i failed unexpectedly", query.id)
+            raise SupersetGenericDBErrorException(utils.error_msg_from_exception(ex))
+
         if data.get("status") == QueryStatus.FAILED:
-            return json_error_response(payload=data)
+            raise SupersetGenericDBErrorException(data["error"])
         return json_success(payload)
 
     @has_access_api
@@ -2501,10 +2512,33 @@ class Superset(BaseSupersetView):  # pylint: disable=too-many-public-methods
                 query.sql, **template_params
             )
         except TemplateError as ex:
-            error_msg = utils.error_msg_from_exception(ex)
-            return json_error_response(
-                f"Query {query_id}: Template syntax error: {error_msg}"
+            query.status = QueryStatus.FAILED
+            session.commit()
+            raise SupersetTemplateParamsErrorException(
+                utils.error_msg_from_exception(ex)
             )
+
+        if is_feature_enabled("ENABLE_TEMPLATE_PROCESSING"):
+            # pylint: disable=protected-access
+            ast = template_processor._env.parse(rendered_query)
+            undefined = find_undeclared_variables(ast)  # type: ignore
+            if undefined:
+                query.status = QueryStatus.FAILED
+                session.commit()
+                raise SupersetTemplateParamsErrorException(
+                    message=ngettext(
+                        "The parameter %(parameters)s in your query is undefined.",
+                        "The following parameters in your query are undefined: %(parameters)s.",
+                        len(undefined),
+                        parameters=utils.format_list(undefined),
+                    )
+                    + " "
+                    + PARAMETER_MISSING_ERR,
+                    extra={
+                        "undefined_parameters": list(undefined),
+                        "template_parameters": template_params,
+                    },
+                )
 
         # Limit is not applied to the CTA queries if SQLLAB_CTAS_NO_LIMIT flag is set
         # to True.
