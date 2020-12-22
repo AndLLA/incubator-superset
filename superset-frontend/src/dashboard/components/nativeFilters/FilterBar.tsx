@@ -61,8 +61,7 @@ const Bar = styled.div`
   width: ${barWidth}; // arbitrary...
   background: ${({ theme }) => theme.colors.grayscale.light5};
   border-right: 1px solid ${({ theme }) => theme.colors.grayscale.light2};
-  height: 100%;
-  max-height: 100%;
+  min-height: 100%;
   display: none;
   /* &.animated {
     display: flex;
@@ -399,6 +398,16 @@ const FilterBar: React.FC<FiltersBarProps> = ({
     });
   };
 
+  const handleResetAll = () => {
+    setFilterData({});
+    const filterIds = Object.keys(filterData);
+    filterIds.forEach(filterId => {
+      if (filterData[filterId]) {
+        setExtraFormData(filterId, {});
+      }
+    });
+  };
+
   return (
     <BarWrapper data-test="filter-bar" className={cx({ open: filtersOpen })}>
       <CollapsedBar
@@ -423,7 +432,11 @@ const FilterBar: React.FC<FiltersBarProps> = ({
           <Icon name="expand" onClick={() => toggleFiltersBar(false)} />
         </TitleArea>
         <ActionButtons>
-          <Button buttonStyle="secondary" buttonSize="sm">
+          <Button
+            buttonStyle="secondary"
+            buttonSize="sm"
+            onClick={handleResetAll}
+          >
             {t('Reset All')}
           </Button>
           <Button
