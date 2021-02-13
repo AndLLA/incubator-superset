@@ -136,6 +136,7 @@ describe('DateFilterControl', () => {
       'Last month': '2020-08-07 < col < 2020-09-07',
       'Last quarter': '2020-06-07 < col < 2020-09-07',
       'Last year': '2019-01-01 < col < 2020-01-01',
+      'Year to Date': '2020-01-01 < col < 2020-09-07',
       'No filter': '-∞ < col < ∞',
     };
 

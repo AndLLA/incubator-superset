@@ -41,6 +41,7 @@ export const COMMON_RANGE_OPTIONS: SelectOptionType[] = [
   { value: 'Last month', label: t('last month') },
   { value: 'Last quarter', label: t('last quarter') },
   { value: 'Last year', label: t('last year') },
+  { value: 'Year to Date', label: t('year to date') },
 ];
 export const COMMON_RANGE_VALUES_SET = new Set(
   COMMON_RANGE_OPTIONS.map(({ value }) => value),
@@ -95,6 +96,7 @@ export const COMMON_RANGE_SET: Set<CommonRangeType> = new Set([
   'Last month',
   'Last quarter',
   'Last year',
+  'Year to Date'
 ]);
 
 export const CALENDAR_RANGE_SET: Set<CalendarRangeType> = new Set([

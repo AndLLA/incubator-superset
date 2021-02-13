@@ -166,6 +166,7 @@ def get_since_until(
         - Last month
         - Last quarter
         - Last year
+        - Year to Date
         - No filter
         - Last X seconds/minutes/hours/days/weeks/months/years
         - Next X seconds/minutes/hours/days/weeks/months/years
@@ -177,6 +178,11 @@ def get_since_until(
 
     if time_range == "No filter":
         return None, None
+
+    if time_range == "Year to Date":
+        _relative_start = parse_human_datetime(_relative_start) - relativedelta(yearday=1)
+        _relative_end = parse_human_datetime(_relative_end)
+        return _relative_start, _relative_end
 
     if time_range and time_range.startswith("Last") and separator not in time_range:
         time_range = time_range + separator + _relative_end

@@ -75,7 +75,8 @@ export type CommonRangeType =
   | 'Last week'
   | 'Last month'
   | 'Last quarter'
-  | 'Last year';
+  | 'Last year'
+  | 'Year to Date';
 
 export const PreviousCalendarWeek = 'previous calendar week';
 export const PreviousCalendarMonth = 'previous calendar month';

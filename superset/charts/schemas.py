@@ -923,6 +923,7 @@ class ChartDataQueryObjectSchema(Schema):
         "- Last month\n"
         "- Last quarter\n"
         "- Last year\n"
+        "- Year to Date\n"
         "- No filter\n"
         "- Last X seconds/minutes/hours/days/weeks/months/years\n"
         "- Next X seconds/minutes/hours/days/weeks/months/years\n",
